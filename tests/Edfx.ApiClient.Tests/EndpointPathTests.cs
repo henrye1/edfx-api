@@ -36,6 +36,6 @@ public class EndpointPathTests
     {
         var (sut, server) = Make();
         await sut.ExtractAsync(section, new[] { "AT9110116332" });
-        Assert.Contains(server.LogEntries, e => e.RequestMessage.Path == path);
+        Assert.Contains(server.LogEntries, e => e.RequestMessage?.Path == path);
     }
 }
