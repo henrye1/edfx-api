@@ -1,0 +1,31 @@
+@page "/"
+@rendermode InteractiveServer
+@using Edfx.ApiClient
+@using Edfx.Domain
+@inject IEdfxClient Client
+<PageTitle>EDF-X Search</PageTitle>
+<h1>EDF-X Entity Search</h1>
+<input @bind="query" placeholder="Name, BVDID, ISIN, CUSIP, LEI, PID, ticker" style="width:420px" />
+<button @onclick="Run" disabled="@busy">Search</button>
+@if (busy) { <p>Searching…</p> }
+@if (result is not null)
+{
+  <p>@result.Total matches (showing @result.Entities.Count)</p>
+  <table class="table">
+    <thead><tr><th>Name</th><th>Country</th><th>Industry</th><th>Ticker</th><th>Financials</th><th></th></tr></thead>
+    <tbody>
+      @foreach (var e in result.Entities)
+      {
+        <tr>
+          <td>@e.InternationalName</td><td>@e.CountryName</td>
+          <td>@e.PrimaryIndustryNDYDescription</td><td>@e.Ticker</td><td>@e.HasFinancials</td>
+          <td><a href="@($"/entity/{e.EntityId}")">Open</a></td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+@code {
+  string query = ""; bool busy; EntitySearchResponse? result;
+  async Task Run() { busy = true; try { (result, _) = await Client.SearchAsync(query); } finally { busy = false; } }
+}
