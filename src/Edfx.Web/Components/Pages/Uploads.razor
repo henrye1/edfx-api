@@ -1,0 +1,38 @@
+@page "/uploads"
+@rendermode InteractiveServer
+@using Edfx.ApiClient
+@inject IEdfxClient Client
+@inject IJSRuntime JS
+<PageTitle>Uploads</PageTitle>
+<h2>Upload Financials</h2>
+<button class="btn btn-outline-primary" @onclick='() => Get("universal")'>Universal template</button>
+<button class="btn btn-outline-primary" @onclick='() => Get("bank")'>Bank template</button>
+<hr/>
+<InputFile OnChange="OnFile" />
+<button class="btn btn-success" @onclick="Upload" disabled="@(bytes is null)">Upload CSV</button>
+<p>@msg</p>
+@if (processId is not null)
+{
+  <button class="btn btn-secondary" @onclick="Poll">Check status</button> <span>@statusText</span>
+}
+@code {
+  byte[]? bytes; string fileName = ""; string msg = ""; string? processId; string statusText = "";
+  async Task Get(string kind)
+  {
+    var data = await Client.DownloadTemplateAsync(kind);
+    await JS.InvokeVoidAsync("edfxDownload", $"{kind}_template.xlsx", Convert.ToBase64String(data));
+  }
+  async Task OnFile(InputFileChangeEventArgs e)
+  {
+    using var ms = new MemoryStream(); await e.File.OpenReadStream(20_000_000).CopyToAsync(ms);
+    bytes = ms.ToArray(); fileName = e.File.Name;
+  }
+  async Task Upload()
+  {
+    var (raw, status) = await Client.UploadModelInputsAsync(bytes!, fileName);
+    msg = $"HTTP {status}";
+    using var d = System.Text.Json.JsonDocument.Parse(raw);
+    if (d.RootElement.TryGetProperty("processId", out var p)) processId = p.GetString();
+  }
+  async Task Poll() { var (raw, _) = await Client.ProcessStatusAsync(processId!); statusText = raw; }
+}

@@ -18,6 +18,12 @@
     <Routes />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script>
+      window.edfxDownload = (name, b64) => {
+        const a = document.createElement('a');
+        a.href = 'data:application/octet-stream;base64,' + b64; a.download = name; a.click();
+      };
+    </script>
 </body>
 
 </html>

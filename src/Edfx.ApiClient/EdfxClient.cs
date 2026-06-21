@@ -62,6 +62,33 @@ public class EdfxClient : IEdfxClient
         return PostRawAsync(path, body);
     }
 
+    public async Task<byte[]> DownloadTemplateAsync(string kind)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, $"entities/financials/template/{kind}");
+        req.Headers.Add("Authorization", $"Bearer {await _tokens.GetTokenAsync()}");
+        using var resp = await _http.SendAsync(req); return await resp.Content.ReadAsByteArrayAsync();
+    }
+
+    public async Task<(string, int)> UploadModelInputsAsync(byte[] csv, string fileName)
+    {
+        var content = new MultipartFormDataContent();
+        var file = new ByteArrayContent(csv);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/csv");
+        content.Add(file, "file", fileName);
+        var req = new HttpRequestMessage(HttpMethod.Post, "entities/modelInputs") { Content = content };
+        req.Headers.Add("Authorization", $"Bearer {await _tokens.GetTokenAsync()}");
+        using var resp = await _http.SendAsync(req);
+        return (await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
+    }
+
+    public async Task<(string, int)> ProcessStatusAsync(string processId)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, $"processes/{processId}/status");
+        req.Headers.Add("Authorization", $"Bearer {await _tokens.GetTokenAsync()}");
+        using var resp = await _http.SendAsync(req);
+        return (await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
+    }
+
     public static readonly string[] AllSections =
     {
         "pds", "pds_creditedge", "pds_riskcalc", "pds_payment", "statements", "ratios",

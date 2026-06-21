@@ -13,4 +13,9 @@ public class MockEdfxClient : IEdfxClient
     public Task<(string raw, int status)> ExtractAsync(string section, IEnumerable<string> ids,
         string? s = null, string? e = null, string? f = null)
         => Task.FromResult((SampleData.ForSection(section), 200));
+    public Task<byte[]> DownloadTemplateAsync(string kind) => Task.FromResult(Array.Empty<byte>());
+    public Task<(string raw, int status)> UploadModelInputsAsync(byte[] csv, string fileName)
+        => Task.FromResult(("{\"processId\":\"mock-process\"}", 200));
+    public Task<(string raw, int status)> ProcessStatusAsync(string processId)
+        => Task.FromResult(("{\"status\":\"complete\"}", 200));
 }
