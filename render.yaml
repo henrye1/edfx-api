@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: edfx-web
+    runtime: docker
+    plan: free
+    envVars:
+      - key: EDFX_USERNAME
+        sync: false
+      - key: EDFX_PASSWORD
+        sync: false
+      - key: EDFX_BASE_URL
+        value: https://api.edfx.moodysanalytics.com/edfx/v1/
+      - key: EDFX_TOKEN_URL
+        value: https://sso.moodysanalytics.com/sso-api/v1/token
+      - key: SUPABASE_DB_CONNECTION
+        sync: false
+      - key: EDFX_USE_MOCK
+        value: "false"
