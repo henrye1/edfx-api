@@ -1,0 +1,34 @@
+@page "/history"
+@rendermode InteractiveServer
+@using Edfx.Storage
+@inject ExtractionRepository Repo
+<PageTitle>History</PageTitle>
+<h2>Extraction History</h2>
+<input @bind="entityId" placeholder="entityId (BVDID)" />
+<input @bind="section" placeholder="section e.g. pds" />
+<button class="btn btn-primary" @onclick="Load">Load</button>
+@if (items is not null)
+{
+  <table class="table"><thead><tr><th>Version</th><th>When</th><th>HTTP</th><th>Status</th><th></th></tr></thead>
+  <tbody>@foreach (var h in items)
+  { <tr><td>@h.Version</td><td>@h.RequestedAt</td><td>@h.HttpStatus</td><td>@h.Status</td>
+        <td><a href="@($"/export/{entityId}/{section}.xlsx")">Excel</a></td></tr> }
+  </tbody></table>
+  <div>
+    <input @bind="vA" placeholder="ver A" style="width:80px" />
+    <input @bind="vB" placeholder="ver B" style="width:80px" />
+    <button class="btn btn-outline-secondary" @onclick="Diff">Diff</button>
+  </div>
+  <pre>@diff</pre>
+}
+@code {
+  string entityId = "", section = ""; int vA, vB; string diff = "";
+  List<Edfx.Storage.HistoryItem>? items;
+  void Load() => items = Repo.History(entityId, section);
+  void Diff()
+  {
+    var a = Repo.RawAtVersion(entityId, section, vA) ?? "";
+    var b = Repo.RawAtVersion(entityId, section, vB) ?? "";
+    diff = a == b ? "(identical)" : $"--- v{vA}\n{a}\n\n+++ v{vB}\n{b}";
+  }
+}
