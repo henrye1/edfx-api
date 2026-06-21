@@ -17,8 +17,13 @@ public class DbFixture
         var migrationsPath = Path.Combine(dir.FullName, "migrations");
 
         using var c = new NpgsqlConnection(Conn); c.Open();
+        // Apply schema migrations (idempotent via IF NOT EXISTS)
         foreach (var f in Directory.GetFiles(migrationsPath).OrderBy(x => x))
             using (var cmd = new NpgsqlCommand(File.ReadAllText(f), c)) cmd.ExecuteNonQuery();
+        // Truncate data tables so tests start from a clean state each run
+        using (var cmd = new NpgsqlCommand(
+            "truncate table pd_values, financial_ratios, peer_metrics, early_warning, credit_limits, extractions, entities restart identity cascade", c))
+            cmd.ExecuteNonQuery();
     }
 }
 public class SkippableFact : FactAttribute
