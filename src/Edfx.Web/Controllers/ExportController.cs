@@ -39,6 +39,8 @@ public class ExportController : ControllerBase
         var root = doc.RootElement;
         if (root.TryGetProperty("entities", out var ents) && ents.ValueKind == JsonValueKind.Array)
             foreach (var e in ents.EnumerateArray()) AddObj(e);
+        else if (root.ValueKind == JsonValueKind.Array)        // some sections return a bare top-level array
+            foreach (var e in root.EnumerateArray()) AddObj(e);
         else AddObj(root);
         return rows;
     }
