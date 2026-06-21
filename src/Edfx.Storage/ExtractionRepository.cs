@@ -27,12 +27,25 @@ public class ExtractionRepository
         int httpStatus, string status, string requestParams)
     {
         using var c = _db.Open();
+
+        // Fix 1: guarantee FK parent row exists regardless of whether UpsertEntity was called
+        using var ensure = new NpgsqlCommand(
+            "insert into entities(entity_id) values(@e) on conflict(entity_id) do nothing", c);
+        ensure.Parameters.AddWithValue("e", entityId);
+        ensure.ExecuteNonQuery();
+
+        // Fix 2: only cast to jsonb when the body is actually valid JSON;
+        // store NULL for raw_json on bad bodies and record error_detail
+        bool isJson = true;
+        try { using var _ = System.Text.Json.JsonDocument.Parse(rawJson); }
+        catch { isJson = false; }
+
         using var cmd = new NpgsqlCommand(
             """
-            insert into extractions(entity_id,section,version,request_params,http_status,status,raw_json,raw_text)
+            insert into extractions(entity_id,section,version,request_params,http_status,status,raw_json,raw_text,error_detail)
             values(@e,@s,
                (select coalesce(max(version),0)+1 from extractions where entity_id=@e and section=@s),
-               @p::jsonb,@h,@st,@r::jsonb,@rt)
+               @p::jsonb,@h,@st,@r::jsonb,@rt,@ed)
             returning id, version;
             """, c);
         cmd.Parameters.AddWithValue("e", entityId);
@@ -40,8 +53,9 @@ public class ExtractionRepository
         cmd.Parameters.AddWithValue("p", requestParams);
         cmd.Parameters.AddWithValue("h", httpStatus);
         cmd.Parameters.AddWithValue("st", status);
-        cmd.Parameters.AddWithValue("r", rawJson);
+        cmd.Parameters.AddWithValue("r", isJson ? (object)rawJson : DBNull.Value);
         cmd.Parameters.AddWithValue("rt", rawJson);
+        cmd.Parameters.AddWithValue("ed", isJson ? (object)DBNull.Value : "non-JSON response body");
         using var rd = cmd.ExecuteReader(); rd.Read();
         return new ExtractionRow(rd.GetGuid(0), rd.GetInt32(1));
     }

@@ -8,6 +8,6 @@ public class SaverAdapter : IExtractionSaver
 
     public SaverAdapter(ExtractionRepository repo) { _repo = repo; }
 
-    public int Save(string entityId, string section, string raw, int httpStatus, string status)
-        => _repo.SaveExtraction(entityId, section, raw, httpStatus, status, "{}").Version;
+    public int Save(string entityId, string section, string raw, int httpStatus, string status, string requestParams)
+        => _repo.SaveExtraction(entityId, section, raw, httpStatus, status, requestParams).Version;
 }

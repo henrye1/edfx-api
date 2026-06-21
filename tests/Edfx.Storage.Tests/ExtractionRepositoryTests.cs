@@ -29,4 +29,30 @@ public class ExtractionRepositoryTests : IClassFixture<DbFixture>
         // raw_text stores the verbatim input — byte-exact, no normalisation
         Assert.Equal("{\"a\":1}", repo.RawAtVersion("E2","ratios",1));
     }
+
+    // Critical #1: SaveExtraction must self-heal the FK parent row even when UpsertEntity
+    // was never called (e.g. entity resolved from EDFX response, not pre-loaded).
+    // Would fail before Fix 1 with a FK violation on extractions.entity_id.
+    [SkippableFact]
+    public void Save_without_prior_UpsertEntity_still_persists()
+    {
+        var repo = new ExtractionRepository(new Db(_f.Conn!));
+        var row = repo.SaveExtraction("UNRESOLVED1", "pds", "{\"pd\":0.01}", 200, "ok", "{}");
+        Assert.Equal(1, row.Version);
+        Assert.Equal("{\"pd\":0.01}", repo.LatestRaw("UNRESOLVED1", "pds"));
+    }
+
+    // Critical #2: A non-JSON body (HTML error page, plain-text 401) must not abort the
+    // insert via a Postgres 22P02 invalid-jsonb-literal error.
+    // raw_text must always preserve the verbatim body; raw_json is NULL for bad responses.
+    // Would fail before Fix 2 with PostgresException 22P02.
+    [SkippableFact]
+    public void Save_nonJson_error_body_persists_with_raw_text()
+    {
+        var repo = new ExtractionRepository(new Db(_f.Conn!));
+        var body = "<html>500 Internal Server Error</html>";
+        var row = repo.SaveExtraction("ERRENT1", "pds", body, 500, "error", "{}");
+        Assert.Equal(1, row.Version);
+        Assert.Equal(body, repo.LatestRaw("ERRENT1", "pds"));
+    }
 }
