@@ -19,10 +19,14 @@ public class EdfxClient : IEdfxClient
             req.Headers.Add("Authorization", $"Bearer {await _tokens.GetTokenAsync()}");
             return await _http.SendAsync(req);
         }
-        var resp = await Send();
-        if (resp.StatusCode == HttpStatusCode.Unauthorized)
-        { await _tokens.GetTokenAsync(force: true); resp = await Send(); }
-        return (await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
+        using (var resp = await Send())
+        {
+            if (resp.StatusCode != HttpStatusCode.Unauthorized)
+                return (await resp.Content.ReadAsStringAsync(), (int)resp.StatusCode);
+        }
+        await _tokens.GetTokenAsync(force: true);
+        using var retry = await Send();
+        return (await retry.Content.ReadAsStringAsync(), (int)retry.StatusCode);
     }
 
     public async Task<(EntitySearchResponse, string)> SearchAsync(string query, int limit = 20, int offset = 0)
