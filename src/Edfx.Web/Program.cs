@@ -31,6 +31,7 @@ builder.Services.AddSingleton(new Db(builder.Configuration["SUPABASE_DB_CONNECTI
 builder.Services.AddScoped<ExtractionRepository>();
 builder.Services.AddScoped<IExtractionSaver, SaverAdapter>();
 builder.Services.AddScoped<ExtractionService>();
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -45,5 +46,6 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+app.MapControllers();
 
 app.Run();
