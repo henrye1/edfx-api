@@ -28,11 +28,28 @@ public static class Exporter
             for (int i = 0; i < cols.Count; i++) ws.Cell(1, i + 1).Value = cols[i];
             for (int r = 0; r < rows.Count; r++)
                 for (int c = 0; c < cols.Count; c++)
-                    ws.Cell(r + 2, c + 1).Value = rows[r].GetValueOrDefault(cols[c])?.ToString();
+                    SetCell(ws.Cell(r + 2, c + 1), rows[r].GetValueOrDefault(cols[c]));
         }
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return ms.ToArray();
+    }
+
+    // Write native Excel types so numbers stay formula-summable in the credit-model spreadsheets.
+    private static void SetCell(IXLCell cell, object? v)
+    {
+        switch (v)
+        {
+            case null: cell.Value = ""; break;
+            case double d: cell.Value = d; break;
+            case float f: cell.Value = f; break;
+            case decimal m: cell.Value = m; break;
+            case int i: cell.Value = i; break;
+            case long l: cell.Value = l; break;
+            case bool b: cell.Value = b; break;
+            case DateTime dt: cell.Value = dt; break;
+            default: cell.Value = v.ToString(); break;
+        }
     }
 
     private static string Format(object? v) => v switch
