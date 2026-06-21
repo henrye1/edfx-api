@@ -1,0 +1,36 @@
+@page "/batch"
+@rendermode InteractiveServer
+@using Edfx.ApiClient
+@using Edfx.Web.Services
+@inject IEdfxClient Client
+@inject ExtractionService Extractor
+<PageTitle>Batch</PageTitle>
+<h2>Batch Extraction</h2>
+<textarea @bind="input" rows="6" style="width:520px" placeholder="One identifier per line"></textarea>
+<div>@foreach (var s in All) {
+  <label class="me-2"><input type="checkbox" checked="@picked.Contains(s)" @onchange="e => Toggle(s, e)" /> @s</label> }
+</div>
+<button class="btn btn-success" @onclick="Run" disabled="@busy">Run Batch</button>
+@if (busy) { <p>@done / @total done&hellip;</p> }
+<ul>@foreach (var line in logLines) { <li>@line</li> }</ul>
+@code {
+  string input = ""; bool busy; int done, total;
+  readonly List<string> logLines = new();
+  static readonly string[] All = EdfxClient.AllSections;
+  readonly HashSet<string> picked = new(new[] { "pds", "ratios", "risk_category", "credit_limit" });
+  void Toggle(string s, ChangeEventArgs e) { if ((bool)e.Value!) picked.Add(s); else picked.Remove(s); }
+  async Task Run()
+  {
+    busy = true; logLines.Clear();
+    var ids = input.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    total = ids.Length;
+    foreach (var id in ids)
+    {
+      var (s, _) = await Client.SearchAsync(id);
+      var entityId = s.Entities.FirstOrDefault()?.EntityId ?? id;
+      await Extractor.ExtractAllAsync(entityId, picked);
+      done++; logLines.Add($"{id} → {entityId}: {picked.Count} sections"); StateHasChanged();
+    }
+    busy = false;
+  }
+}
