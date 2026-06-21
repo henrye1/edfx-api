@@ -13,8 +13,8 @@ public class ExtractionRepositoryTests : IClassFixture<DbFixture>
         var v2 = repo.SaveExtraction("E1", "pds", "{\"pd\":0.02}", 200, "ok", "{}");
         Assert.Equal(1, v1.Version);
         Assert.Equal(2, v2.Version);
-        // Postgres jsonb serialises with a space after the colon: {"pd": 0.02}
-        Assert.Equal("{\"pd\": 0.02}", repo.LatestRaw("E1", "pds"));
+        // raw_text stores the verbatim input — byte-exact, no normalisation
+        Assert.Equal("{\"pd\":0.02}", repo.LatestRaw("E1", "pds"));
     }
 
     [SkippableFact]
@@ -26,7 +26,7 @@ public class ExtractionRepositoryTests : IClassFixture<DbFixture>
         repo.SaveExtraction("E2","ratios","{\"a\":2}",200,"ok","{}");
         var hist = repo.History("E2","ratios");
         Assert.Equal(2, hist.Count);
-        // Postgres jsonb serialises with a space after the colon: {"a": 1}
-        Assert.Equal("{\"a\": 1}", repo.RawAtVersion("E2","ratios",1));
+        // raw_text stores the verbatim input — byte-exact, no normalisation
+        Assert.Equal("{\"a\":1}", repo.RawAtVersion("E2","ratios",1));
     }
 }

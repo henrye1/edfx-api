@@ -29,10 +29,10 @@ public class ExtractionRepository
         using var c = _db.Open();
         using var cmd = new NpgsqlCommand(
             """
-            insert into extractions(entity_id,section,version,request_params,http_status,status,raw_json)
+            insert into extractions(entity_id,section,version,request_params,http_status,status,raw_json,raw_text)
             values(@e,@s,
                (select coalesce(max(version),0)+1 from extractions where entity_id=@e and section=@s),
-               @p::jsonb,@h,@st,@r::jsonb)
+               @p::jsonb,@h,@st,@r::jsonb,@rt)
             returning id, version;
             """, c);
         cmd.Parameters.AddWithValue("e", entityId);
@@ -41,6 +41,7 @@ public class ExtractionRepository
         cmd.Parameters.AddWithValue("h", httpStatus);
         cmd.Parameters.AddWithValue("st", status);
         cmd.Parameters.AddWithValue("r", rawJson);
+        cmd.Parameters.AddWithValue("rt", rawJson);
         using var rd = cmd.ExecuteReader(); rd.Read();
         return new ExtractionRow(rd.GetGuid(0), rd.GetInt32(1));
     }
@@ -49,7 +50,7 @@ public class ExtractionRepository
     {
         using var c = _db.Open();
         using var cmd = new NpgsqlCommand(
-            "select raw_json::text from extractions where entity_id=@e and section=@s order by version desc limit 1", c);
+            "select raw_text from extractions where entity_id=@e and section=@s order by version desc limit 1", c);
         cmd.Parameters.AddWithValue("e", entityId);
         cmd.Parameters.AddWithValue("s", section);
         return cmd.ExecuteScalar() as string;
@@ -71,7 +72,7 @@ public class ExtractionRepository
     {
         using var c = _db.Open();
         using var cmd = new NpgsqlCommand(
-            "select raw_json::text from extractions where entity_id=@e and section=@s and version=@v", c);
+            "select raw_text from extractions where entity_id=@e and section=@s and version=@v", c);
         cmd.Parameters.AddWithValue("e", entityId); cmd.Parameters.AddWithValue("s", section);
         cmd.Parameters.AddWithValue("v", version);
         return cmd.ExecuteScalar() as string;

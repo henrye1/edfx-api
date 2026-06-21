@@ -22,6 +22,7 @@ create table if not exists extractions (
     http_status    int,
     status         text not null,
     raw_json       jsonb,
+    raw_text       text,
     error_detail   text,
     unique (entity_id, section, version)
 );
