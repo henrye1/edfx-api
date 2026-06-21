@@ -1,0 +1,36 @@
+@page "/entity/{EntityId}"
+@rendermode InteractiveServer
+@using Edfx.Web.Services
+@inject ExtractionService Extractor
+<PageTitle>Entity @EntityId</PageTitle>
+<h2>Entity @EntityId</h2>
+<button class="btn btn-success mb-3" @onclick="ExtractAll" disabled="@running">Extract All Sections</button>
+@if (running) { <p>Extracting @current…</p> }
+@foreach (var s in Sections)
+{
+  <SectionPanel EntityId="@EntityId" Section="@s.Key" Title="@s.Title" />
+}
+@code {
+  [Parameter] public string EntityId { get; set; } = "";
+  bool running; string current = "";
+  record Sec(string Key, string Title);
+  static readonly Sec[] Sections =
+  {
+    new("pds","PD (best estimate)"), new("pds_creditedge","PD — CreditEdge"),
+    new("pds_riskcalc","PD — RiskCalc"), new("pds_payment","PD — Payment"),
+    new("statements","Financial Statements"), new("ratios","Financial Ratios"),
+    new("ratios_calculate","Ratios (calculated)"),
+    new("peers_id","Peer Group IDs"), new("peers_metrics","Peer Metrics"),
+    new("peers_percentile","Peer Percentile"), new("peers_metadata","Peer Metadata"),
+    new("peers_recommended","Recommended Peers"),
+    new("risk_category","Early Warning — Risk Category"), new("triggers","Early Warning — Triggers"),
+    new("credit_limit","Credit Limit")
+  };
+  async Task ExtractAll()
+  {
+    running = true;
+    try { await Extractor.ExtractAllAsync(EntityId, Sections.Select(s => s.Key),
+            s => { current = s; InvokeAsync(StateHasChanged); }); }
+    finally { running = false; }
+  }
+}
