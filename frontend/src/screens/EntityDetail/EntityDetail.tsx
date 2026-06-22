@@ -11,6 +11,7 @@ import { lineVsTriggerOption } from '../../charts/lineVsTrigger'
 import { steppedRatingOption } from '../../charts/steppedRating'
 import { ewsQuadrantOption } from '../../charts/ewsQuadrant'
 import { percentileLinesOption } from '../../charts/percentileLines'
+import { RATING_SCALE, ratingNotch } from '../../charts/ratingScale'
 
 const RANGES = ['3M', '6M', '1Y', '2Y', '3Y', '5Y', 'All']
 
@@ -18,6 +19,7 @@ type Tone = 'good' | 'bad' | 'neutral'
 const ewsTone = (change?: string | null): Tone =>
   change === 'Deteriorated' ? 'bad' : change === 'Improved' ? 'good' : 'neutral'
 const pct = (pd?: number | null) => (pd == null ? '—' : `${(pd * 100).toFixed(2)}%`)
+const shortDate = (d?: string | null) => (d ? d.slice(0, 7) : '') // YYYY-MM
 
 export function EntityDetail() {
   const { id = '' } = useParams()
@@ -65,6 +67,15 @@ export function EntityDetail() {
   // KPI cards built from live EDF-X data.
   const heroPdRating = `${pct(summary?.pd)}${summary?.impliedRating ? ` | ${summary.impliedRating}` : ''}`
 
+  // Live trend charts built from the monthly PD history.
+  const hist = (summary?.pdHistory ?? []).filter((h) => h.date)
+  const hasHistory = hist.length > 1
+  const pdSeries = hist.map((h) => ({ date: shortDate(h.date), value: (h.pd ?? 0) * 100 }))
+  const triggerSeries = summary?.trigger != null
+    ? hist.map((h) => ({ date: shortDate(h.date), value: summary.trigger! * 100 }))
+    : []
+  const ratingSeries = hist.map((h) => ({ date: shortDate(h.date), value: ratingNotch(h.impliedRating) }))
+
   return (
     <div>
       {BackBar}
@@ -85,35 +96,33 @@ export function EntityDetail() {
               pills={summary?.ewsChange ? [{ label: summary.ewsChange, tone: ewsTone(summary.ewsChange) }] : []} />
           </div>
 
-          {mock ? (
+          {hasHistory ? (
             <>
-              <div className="mb-2 text-[11px] text-muted">Charts below are illustrative (historical series not yet wired to live EDF-X).</div>
               <div className="mb-3">
-                <ChartCard title="1-Year PiT PD vs. Trigger" info="PiT PD against the peer trigger level"
+                <ChartCard title="1-Year PiT PD vs. Trigger" info="Monthly PiT PD (live) against the current peer trigger level"
                   ranges={RANGES} activeRange={range} onRangeChange={setRange}>
-                  <ReactECharts option={lineVsTriggerOption(mock.pdVsTrigger)} style={{ height: 220 }} />
+                  <ReactECharts option={lineVsTriggerOption({ pd: pdSeries, trigger: triggerSeries })} style={{ height: 220 }} />
                 </ChartCard>
               </div>
-              <div className="mb-3 flex gap-3">
-                <div className="flex-1">
-                  <ChartCard title="Implied Rating trend">
-                    <ReactECharts option={steppedRatingOption(mock.ratingTrend, mock.ratingScale)} style={{ height: 220 }} />
-                  </ChartCard>
-                </div>
-                <div className="flex-1">
-                  <ChartCard title="Early Warning Signal">
-                    <ReactECharts option={ewsQuadrantOption(mock.ewsQuadrant)} style={{ height: 220 }} />
-                  </ChartCard>
-                </div>
-              </div>
-              <ChartCard title="1-Year PD Peer Group Percentile" ranges={RANGES} activeRange={range} onRangeChange={setRange}>
-                <ReactECharts option={percentileLinesOption(mock.peerPercentile)} style={{ height: 240 }} />
+              <ChartCard title="Implied Rating trend" info="Monthly implied rating (live)">
+                <ReactECharts option={steppedRatingOption(ratingSeries, RATING_SCALE)} style={{ height: 220 }} />
               </ChartCard>
             </>
           ) : (
             <div className="rounded-card bg-card p-6 shadow-card text-sm text-muted">
-              Live KPIs shown above. Historical trend charts (PD vs. trigger, implied-rating, early-warning
-              quadrant, peer percentiles) need time-series data and aren't wired to live EDF-X in this build.
+              Live KPIs shown above. A monthly PD/rating history wasn't returned for this entity, so the
+              trend charts are unavailable.
+            </div>
+          )}
+
+          {mock && (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <ChartCard title="Early Warning Signal" info="Illustrative">
+                <ReactECharts option={ewsQuadrantOption(mock.ewsQuadrant)} style={{ height: 220 }} />
+              </ChartCard>
+              <ChartCard title="1-Year PD Peer Group Percentile" info="Illustrative">
+                <ReactECharts option={percentileLinesOption(mock.peerPercentile)} style={{ height: 220 }} />
+              </ChartCard>
             </div>
           )}
         </div>

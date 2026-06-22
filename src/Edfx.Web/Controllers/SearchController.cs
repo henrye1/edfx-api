@@ -5,7 +5,15 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Edfx.Web.Controllers;
 
-/// <summary>Summary KPIs for the entity detail page (live EDF-X or mock).</summary>
+/// <summary>One monthly point in the PD / implied-rating history.</summary>
+public record PdPoint
+{
+    public string? Date { get; init; }          // asOfDate (YYYY-MM-DD)
+    public double? Pd { get; init; }
+    public string? ImpliedRating { get; init; }
+}
+
+/// <summary>Summary KPIs + history for the entity detail page (live EDF-X or mock).</summary>
 public record EntitySummaryDto
 {
     public string EntityId { get; init; } = "";
@@ -15,6 +23,8 @@ public record EntitySummaryDto
     public string? ImpliedRating { get; init; }
     public string? Ews { get; init; }           // risk category: Low/Medium/High/Severe
     public string? EwsChange { get; init; }     // Deteriorated / Improved / No Change
+    public double? Trigger { get; init; }        // EWS trigger PD level (point-in-time)
+    public List<PdPoint> PdHistory { get; init; } = new();
 }
 
 [ApiController]
@@ -53,20 +63,28 @@ public class SearchController : ControllerBase
         var (search, _) = await _client.SearchAsync(id, 1);
         name = search.Entities.FirstOrDefault()?.InternationalName;
 
-        double? pd = null; string? rating = null, asOf = null, ews = null, ewsChange = null;
+        double? pd = null, trigger = null; string? rating = null, asOf = null, ews = null, ewsChange = null;
+        var history = new List<PdPoint>();
 
-        var (pdRaw, pdStatus) = await _client.ExtractAsync("pds", new[] { id });
+        // Pull a 12-month monthly history so the trend charts can be driven live.
+        var startDate = DateTime.UtcNow.AddMonths(-12).ToString("yyyy-MM-dd");
+        var endDate = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var (pdRaw, pdStatus) = await _client.ExtractAsync("pds", new[] { id }, startDate, endDate, "monthly");
         if (pdStatus is >= 200 and < 300 && FirstEntity(pdRaw) is { } pe)
         {
-            if (pe.TryGetProperty("pd", out var pdEl) && pdEl.TryGetDouble(out var pdVal)) pd = pdVal;
+            pd = Dbl(pe, "pd");
             rating = Str(pe, "impliedRating");
             asOf = Str(pe, "asOfDate");
+            if (pe.TryGetProperty("history", out var hist) && hist.ValueKind == JsonValueKind.Array)
+                foreach (var h in hist.EnumerateArray())
+                    history.Add(new PdPoint { Date = Str(h, "asOfDate"), Pd = Dbl(h, "pd"), ImpliedRating = Str(h, "impliedRating") });
         }
 
         var (rcRaw, rcStatus) = await _client.ExtractAsync("risk_category", new[] { id });
         if (rcStatus is >= 200 and < 300 && FirstEntity(rcRaw) is { } re)
         {
             ews = Str(re, "riskCategory");
+            trigger = Dbl(re, "trigger");
             if (re.TryGetProperty("irChange", out var ir) && ir.TryGetInt32(out var irChange))
                 ewsChange = irChange < 0 ? "Deteriorated" : irChange > 0 ? "Improved" : "No Change";
         }
@@ -75,6 +93,7 @@ public class SearchController : ControllerBase
         {
             EntityId = id, Name = name, AsOfDate = asOf,
             Pd = pd, ImpliedRating = rating, Ews = ews, EwsChange = ewsChange,
+            Trigger = trigger, PdHistory = history,
         };
     }
 
@@ -93,4 +112,13 @@ public class SearchController : ControllerBase
 
     private static string? Str(JsonElement e, string prop)
         => e.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    private static double? Dbl(JsonElement e, string prop)
+    {
+        if (!e.TryGetProperty(prop, out var v)) return null;
+        if (v.ValueKind == JsonValueKind.Number && v.TryGetDouble(out var n)) return n;
+        if (v.ValueKind == JsonValueKind.String && double.TryParse(v.GetString(),
+                System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var s)) return s;
+        return null;
+    }
 }

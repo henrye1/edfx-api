@@ -25,7 +25,14 @@ export async function searchEntities(query: string, signal?: AbortSignal): Promi
   return data.entities ?? []
 }
 
-/** Live summary KPIs for one entity (from the .NET /summary endpoint). */
+/** One monthly point in the PD / implied-rating history. */
+export interface PdPoint {
+  date?: string | null
+  pd?: number | null
+  impliedRating?: string | null
+}
+
+/** Live summary KPIs + history for one entity (from the .NET /summary endpoint). */
 export interface EntitySummaryLive {
   entityId: string
   name?: string | null
@@ -34,6 +41,8 @@ export interface EntitySummaryLive {
   impliedRating?: string | null
   ews?: string | null           // Low/Medium/High/Severe
   ewsChange?: string | null     // Deteriorated/Improved/No Change
+  trigger?: number | null       // EWS trigger PD level
+  pdHistory?: PdPoint[]
 }
 
 export async function getEntitySummary(id: string, signal?: AbortSignal): Promise<EntitySummaryLive> {

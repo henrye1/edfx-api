@@ -46,10 +46,12 @@ public class SearchControllerTests
         client.SearchAsync("ZA1", 1, 0).Returns((
             new EntitySearchResponse { Entities = { new EntitySummary { EntityId = "ZA1", InternationalName = "The Bidvest Group Ltd" } } },
             "{}"));
-        client.ExtractAsync("pds", Arg.Any<IEnumerable<string>>(), null, null, null)
-              .Returns(("{\"entities\":[{\"pd\":0.0019,\"impliedRating\":\"A3\",\"asOfDate\":\"2026-06-21\"}]}", 200));
-        client.ExtractAsync("risk_category", Arg.Any<IEnumerable<string>>(), null, null, null)
-              .Returns(("{\"entities\":[{\"riskCategory\":\"Medium\",\"irChange\":-2}]}", 200));
+        client.ExtractAsync("pds", Arg.Any<IEnumerable<string>>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+              .Returns(("{\"entities\":[{\"pd\":0.0019,\"impliedRating\":\"A3\",\"asOfDate\":\"2026-06-21\"," +
+                        "\"history\":[{\"asOfDate\":\"2026-05-31\",\"pd\":0.0018,\"impliedRating\":\"A3\"}," +
+                        "{\"asOfDate\":\"2026-06-21\",\"pd\":0.0019,\"impliedRating\":\"A3\"}]}]}", 200));
+        client.ExtractAsync("risk_category", Arg.Any<IEnumerable<string>>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+              .Returns(("{\"entities\":[{\"riskCategory\":\"Medium\",\"irChange\":-2,\"trigger\":0.026}]}", 200));
         var sut = new SearchController(client);
 
         var dto = (await sut.Summary("ZA1")).Value!;
@@ -59,5 +61,8 @@ public class SearchControllerTests
         Assert.Equal("A3", dto.ImpliedRating);
         Assert.Equal("Medium", dto.Ews);
         Assert.Equal("Deteriorated", dto.EwsChange); // irChange < 0
+        Assert.Equal(0.026, dto.Trigger);
+        Assert.Equal(2, dto.PdHistory.Count);
+        Assert.Equal(0.0018, dto.PdHistory[0].Pd);
     }
 }
