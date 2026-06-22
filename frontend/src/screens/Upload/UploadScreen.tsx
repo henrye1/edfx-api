@@ -27,7 +27,7 @@ export function UploadScreen() {
     <div>
       <h1 className="mb-1 text-[28px] font-bold text-ink">Upload &amp; Score</h1>
       <p className="mb-4 max-w-prose text-sm text-muted">
-        Upload a financials file (CSV or Excel) in the EDF-X universal template format. The data is scored
+        Upload a financials file (CSV or Excel) in the EDF-X corporate template format. The data is scored
         via the modelInputs engine and returns the financial inputs (model drivers), key ratios, and both
         <b className="text-ink"> point-in-time (CCA)</b> and <b className="text-ink">through-the-cycle (FSO)</b> PDs.
       </p>
@@ -40,7 +40,7 @@ export function UploadScreen() {
             className="rounded-full bg-brand px-5 py-2 text-sm text-white disabled:opacity-50">
             {busy ? 'Scoring… (this can take ~30s)' : 'Score file'}
           </button>
-          <a href="/api/uploads/template" className="ml-auto text-xs text-brand">⬇ Download universal template</a>
+          <a href="/api/uploads/template" className="ml-auto text-xs text-brand">⬇ Download corporate template</a>
         </div>
         {error && <div className="mt-2 text-xs text-bad">{error}</div>}
       </div>
@@ -101,7 +101,7 @@ export function UploadScreen() {
         <div className="rounded-card bg-card p-5 shadow-card">
           <div className="text-sm font-semibold text-bad">Scoring {result.status}</div>
           <p className="mt-1 text-sm text-muted">{result.error ?? 'The file could not be scored.'}</p>
-          <p className="mt-2 text-xs text-muted">Tip: download the universal template above and ensure required fields (incl. <code>entityIdentifierbvd</code>, country and industry) are populated.</p>
+          <p className="mt-2 text-xs text-muted">Tip: download the corporate template above and ensure required fields (incl. <code>entityIdentifierbvd</code>, country and industry) are populated.</p>
         </div>
       )}
     </div>
