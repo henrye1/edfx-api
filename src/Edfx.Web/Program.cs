@@ -4,6 +4,11 @@ using Edfx.Web.Components;
 using Edfx.Web.Services;
 using Polly;
 
+// Load .env (if present) into environment variables before configuration is read.
+// Walks up from the working directory, so a .env at the repo root or project dir works.
+// No-op when the file is absent (e.g. Docker/Render, which inject real env vars).
+DotNetEnv.Env.TraversePath().Load();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
