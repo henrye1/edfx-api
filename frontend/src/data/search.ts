@@ -24,3 +24,20 @@ export async function searchEntities(query: string, signal?: AbortSignal): Promi
   const data: SearchResponse = await res.json()
   return data.entities ?? []
 }
+
+/** Live summary KPIs for one entity (from the .NET /summary endpoint). */
+export interface EntitySummaryLive {
+  entityId: string
+  name?: string | null
+  asOfDate?: string | null
+  pd?: number | null            // probability, e.g. 0.0019
+  impliedRating?: string | null
+  ews?: string | null           // Low/Medium/High/Severe
+  ewsChange?: string | null     // Deteriorated/Improved/No Change
+}
+
+export async function getEntitySummary(id: string, signal?: AbortSignal): Promise<EntitySummaryLive> {
+  const res = await fetch(`/api/entities/${encodeURIComponent(id)}/summary`, { signal })
+  if (!res.ok) throw new Error(`Summary failed (HTTP ${res.status})`)
+  return res.json()
+}

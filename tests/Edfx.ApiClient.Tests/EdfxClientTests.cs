@@ -58,6 +58,27 @@ public class EdfxClientTests
     }
 
     [Fact]
+    public async Task Extract_omits_null_date_fields_from_the_request_body()
+    {
+        var server = WireMockServer.Start();
+        server.Given(Request.Create().WithPath("/token").UsingPost())
+              .RespondWith(Response.Create().WithBody("""{"id_token":"T1","token_type":"Bearer"}"""));
+        server.Given(Request.Create().WithPath("/edfx/v1/entities/pds").UsingPost())
+              .RespondWith(Response.Create().WithStatusCode(200).WithBody("{}"));
+        var opts = new EdfxOptions { Username = "u", Password = "p",
+            TokenUrl = server.Url + "/token", BaseUrl = server.Url + "/edfx/v1/" };
+        var http = new HttpClient { BaseAddress = new Uri(server.Url + "/edfx/v1/") };
+        var sut = new EdfxClient(http, new TokenProvider(new HttpClient(), opts), opts);
+
+        await sut.ExtractAsync("pds", new[] { "E1" });
+
+        var body = server.LogEntries.Single(e => e.RequestMessage?.Path == "/edfx/v1/entities/pds").RequestMessage?.Body ?? "";
+        Assert.DoesNotContain("startDate", body);
+        Assert.DoesNotContain("null", body);
+        Assert.Contains("entityId", body);
+    }
+
+    [Fact]
     public async Task Triggers_resolves_peerId_from_riskCategory_then_calls_triggers()
     {
         var server = WireMockServer.Start();

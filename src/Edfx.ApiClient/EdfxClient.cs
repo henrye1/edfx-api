@@ -1,17 +1,21 @@
 using System.Net; using System.Text; using System.Text.Json;
+using System.Text.Json.Serialization;
 using Edfx.Domain;
 namespace Edfx.ApiClient;
 
 public class EdfxClient : IEdfxClient
 {
     private static readonly JsonSerializerOptions J = new() { PropertyNameCaseInsensitive = true };
+    // Omit null fields: some endpoints (e.g. tools/riskCategory) reject an explicit
+    // null startDate/endDate/historyFrequency with HTTP 422.
+    private static readonly JsonSerializerOptions JOut = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     private readonly HttpClient _http; private readonly TokenProvider _tokens; private readonly EdfxOptions _o;
     public EdfxClient(HttpClient http, TokenProvider tokens, EdfxOptions o)
     { _http = http; _tokens = tokens; _o = o; if (_http.BaseAddress is null) _http.BaseAddress = new Uri(_o.BaseUrl); }
 
     public async Task<(string raw, int status)> PostRawAsync(string path, object body)
     {
-        var json = JsonSerializer.Serialize(body);
+        var json = JsonSerializer.Serialize(body, JOut);
         async Task<HttpResponseMessage> Send()
         {
             var req = new HttpRequestMessage(HttpMethod.Post, path)
