@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams, useLocation } from 'react-router-dom'
 import { data } from '../../data'
-import type { PortfolioDetail as PD, CompanyRow } from '../../data/types'
+import type { PortfolioDetail as PD, CompanyRow, RiskDistribution } from '../../data/types'
 import { KpiCard } from '../../components/KpiCard'
 import { StackedDistributionBar } from '../../components/StackedDistributionBar'
 import { Sparkline } from '../../components/Sparkline'
@@ -12,7 +12,7 @@ import { RatingBadge } from '../../components/RatingBadge'
 import { RiskGauge } from '../../components/RiskGauge'
 import { AddCompanyDialog } from '../../components/AddCompanyDialog'
 import {
-  getEntitySummary, getPortfolioCompanies, addPortfolioCompany,
+  getEntitySummary, getPortfolioCompanies, addPortfolioCompany, getPortfolioName,
   type EntityHit, type PersistedCompany,
 } from '../../data/search'
 import { riskColor, RISK_LEVELS, type RiskLevel } from '../../tokens'
@@ -21,6 +21,24 @@ const TABS = ['All', 'With EWS', 'Need Additional Data']
 
 const toRiskLevel = (s?: string | null): RiskLevel =>
   (RISK_LEVELS as readonly string[]).includes(s ?? '') ? (s as RiskLevel) : 'Need Additional Data'
+
+// Derive a portfolio summary from its companies (for created portfolios with no fixture).
+function deriveDetail(id: string, name: string, companies: CompanyRow[]): PD {
+  const distribution: RiskDistribution = { Low: 0, Medium: 0, High: 0, Severe: 0, 'Need Additional Data': 0 }
+  for (const c of companies) distribution[c.ews]++
+  const pds = companies.filter((c) => c.ews !== 'Need Additional Data').map((c) => c.pd).sort((a, b) => a - b)
+  const at = (q: number) => pds[Math.min(pds.length - 1, Math.floor(pds.length * q))]
+  const median = pds.length ? at(0.5) : 0
+  return {
+    id, name, distribution, pdMedian: median, pdChangeMedianBps: 0, impliedRating: '—', trend: [], createdBy: 'You',
+    companyCount: companies.length, needDataCount: distribution['Need Additional Data'],
+    pdSeries: [], ratingSeries: [],
+    pdDistribution: pds.length
+      ? { min: pds[0], p25: at(0.25), median, p75: at(0.75), max: pds[pds.length - 1] }
+      : { min: 0, p25: 0, median: 0, p75: 0, max: 0 },
+    companies,
+  }
+}
 
 // Persisted snapshot -> table row. Stored pd is a probability; the table shows percent.
 const persistedToRow = (c: PersistedCompany): CompanyRow => ({
@@ -37,24 +55,37 @@ const persistedToRow = (c: PersistedCompany): CompanyRow => ({
 
 export function PortfolioDetail() {
   const { id = '' } = useParams()
-  const [pf, setPf] = useState<PD | undefined>()
+  const location = useLocation()
+  const stateName = (location.state as { name?: string } | null)?.name
+  const [mock, setMock] = useState<PD | undefined>()
+  const [name, setName] = useState<string>('')
   const [companies, setCompanies] = useState<CompanyRow[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [tab, setTab] = useState('All')
   const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
-    Promise.all([data.getPortfolio(id), getPortfolioCompanies(id)]).then(([p, persisted]) => {
+    setLoaded(false)
+    Promise.all([data.getPortfolio(id), getPortfolioCompanies(id)]).then(async ([p, persisted]) => {
+      const resolvedName = p?.name ?? stateName ?? (await getPortfolioName(id)) ?? 'Portfolio'
       if (!active) return
-      setPf(p)
+      setMock(p)
+      setName(resolvedName)
       const base = p?.companies ?? []
       const persistedRows = persisted.map(persistedToRow)
-      // Persisted companies take precedence over fixture rows with the same id.
       const persistedIds = new Set(persistedRows.map((r) => r.id))
       setCompanies([...persistedRows, ...base.filter((b) => !persistedIds.has(b.id))])
+      setLoaded(true)
     })
     return () => { active = false }
-  }, [id])
+  }, [id, stateName])
+
+  // Mock portfolios keep their (static) fixture KPIs; created/empty ones derive from companies.
+  const pf = useMemo<PD | undefined>(
+    () => (loaded ? (mock ?? deriveDetail(id, name, companies)) : undefined),
+    [loaded, mock, id, name, companies],
+  )
   if (!pf) return null
 
   // On add: pull the live snapshot, persist it, then show it in the table.

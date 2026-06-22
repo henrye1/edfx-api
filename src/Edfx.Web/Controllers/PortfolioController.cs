@@ -11,6 +11,68 @@ public class PortfolioController : ControllerBase
     private readonly ILogger<PortfolioController> _log;
     public PortfolioController(PortfolioRepository repo, ILogger<PortfolioController> log) { _repo = repo; _log = log; }
 
+    public record CreatePortfolioRequest
+    {
+        public string Name { get; init; } = "";
+        public string? CreatedBy { get; init; }
+    }
+
+    /// <summary>Lists persisted portfolios (with company counts / EWS distribution / median PD).</summary>
+    [HttpGet]
+    public ActionResult<List<PortfolioSummaryRow>> List()
+    {
+        try { return _repo.ListPortfolios(); }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Portfolio list failed");
+            return new List<PortfolioSummaryRow>();
+        }
+    }
+
+    /// <summary>Creates a new portfolio. Returns its generated id + name.</summary>
+    [HttpPost]
+    public ActionResult Create([FromBody] CreatePortfolioRequest req)
+    {
+        var name = req?.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name)) return BadRequest(new { error = "name is required" });
+        var id = Slug(name) + "-" + Guid.NewGuid().ToString("N")[..6];
+        try
+        {
+            _repo.CreatePortfolio(id, name, req!.CreatedBy);
+            return Ok(new { portfolioId = id, name, persisted = true });
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Portfolio create failed");
+            // Still return the id so the UI can use it in-session; flag it as not persisted.
+            return StatusCode(503, new { portfolioId = id, name, persisted = false, error = "Persistence unavailable (database not configured or unreachable)." });
+        }
+    }
+
+    /// <summary>Portfolio name lookup (for the detail header of created portfolios).</summary>
+    [HttpGet("{id}")]
+    public ActionResult Meta(string id)
+    {
+        try
+        {
+            var name = _repo.GetPortfolioName(id);
+            return name is null ? NotFound() : Ok(new { portfolioId = id, name });
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Portfolio meta failed for {PortfolioId}", id);
+            return NotFound();
+        }
+    }
+
+    private static string Slug(string name)
+    {
+        var chars = name.ToLowerInvariant().Select(ch => char.IsLetterOrDigit(ch) ? ch : '-').ToArray();
+        var slug = new string(chars).Trim('-');
+        while (slug.Contains("--")) slug = slug.Replace("--", "-");
+        return string.IsNullOrEmpty(slug) ? "portfolio" : slug;
+    }
+
     public record AddCompanyRequest
     {
         public string EntityId { get; init; } = "";

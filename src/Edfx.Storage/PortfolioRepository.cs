@@ -6,10 +6,66 @@ public record PortfolioCompany(
     double? Pd, string? ImpliedRating, string? Ews, string? EwsChange,
     double? PeerPercentile, DateTimeOffset AddedAt);
 
+public record PortfolioSummaryRow(
+    string PortfolioId, string Name, string? CreatedBy, int CompanyCount,
+    int Low, int Medium, int High, int Severe, int NeedData, double? PdMedian);
+
 public class PortfolioRepository
 {
     private readonly Db _db;
     public PortfolioRepository(Db db) { _db = db; }
+
+    /// <summary>Creates a portfolio (idempotent: updates the name on conflict).</summary>
+    public void CreatePortfolio(string id, string name, string? createdBy)
+    {
+        using var conn = _db.Open();
+        using var cmd = new NpgsqlCommand(
+            """
+            insert into portfolios(portfolio_id, name, created_by) values(@i,@n,@c)
+            on conflict(portfolio_id) do update set name=excluded.name;
+            """, conn);
+        cmd.Parameters.AddWithValue("i", id);
+        cmd.Parameters.AddWithValue("n", name);
+        cmd.Parameters.AddWithValue("c", (object?)createdBy ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+    }
+
+    public string? GetPortfolioName(string id)
+    {
+        using var conn = _db.Open();
+        using var cmd = new NpgsqlCommand("select name from portfolios where portfolio_id=@i", conn);
+        cmd.Parameters.AddWithValue("i", id);
+        return cmd.ExecuteScalar() as string;
+    }
+
+    /// <summary>All portfolios with company counts, EWS distribution and median PD.</summary>
+    public List<PortfolioSummaryRow> ListPortfolios()
+    {
+        using var conn = _db.Open();
+        using var cmd = new NpgsqlCommand(
+            """
+            select p.portfolio_id, p.name, p.created_by,
+                   count(c.entity_id) as company_count,
+                   count(*) filter (where c.ews='Low')    as low,
+                   count(*) filter (where c.ews='Medium')  as medium,
+                   count(*) filter (where c.ews='High')    as high,
+                   count(*) filter (where c.ews='Severe')  as severe,
+                   count(*) filter (where c.entity_id is not null and (c.ews is null or c.ews not in ('Low','Medium','High','Severe'))) as needdata,
+                   percentile_cont(0.5) within group (order by c.pd) as pd_median
+            from portfolios p
+            left join portfolio_companies c on c.portfolio_id = p.portfolio_id
+            group by p.portfolio_id, p.name, p.created_by, p.created_at
+            order by p.created_at desc;
+            """, conn);
+        var list = new List<PortfolioSummaryRow>();
+        using var rd = cmd.ExecuteReader();
+        while (rd.Read())
+            list.Add(new PortfolioSummaryRow(
+                rd.GetString(0), rd.GetString(1), rd.IsDBNull(2) ? null : rd.GetString(2),
+                (int)rd.GetInt64(3), (int)rd.GetInt64(4), (int)rd.GetInt64(5), (int)rd.GetInt64(6),
+                (int)rd.GetInt64(7), (int)rd.GetInt64(8), rd.IsDBNull(9) ? null : rd.GetDouble(9)));
+        return list;
+    }
 
     /// <summary>Adds (or updates) a company in a portfolio with a snapshot of its loaded data.</summary>
     public void AddCompany(string portfolioId, PortfolioCompany c)

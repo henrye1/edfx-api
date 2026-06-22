@@ -135,6 +135,54 @@ export async function getPortfolioCompanies(portfolioId: string, signal?: AbortS
   }
 }
 
+/** A persisted portfolio with company aggregates (from GET /api/portfolios). */
+export interface PersistedPortfolio {
+  portfolioId: string
+  name: string
+  createdBy?: string | null
+  companyCount: number
+  low: number
+  medium: number
+  high: number
+  severe: number
+  needData: number
+  pdMedian?: number | null
+}
+
+export async function listPortfolios(signal?: AbortSignal): Promise<PersistedPortfolio[]> {
+  try {
+    const res = await fetch('/api/portfolios', { signal })
+    if (!res.ok) return []
+    return await res.json()
+  } catch {
+    return []
+  }
+}
+
+export interface CreatePortfolioResult { portfolioId: string; name: string; persisted: boolean }
+
+/** Creates a portfolio. Returns the generated id even if persistence is unavailable. */
+export async function createPortfolio(name: string): Promise<CreatePortfolioResult> {
+  const res = await fetch('/api/portfolios', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  // 503 still returns a usable id (persisted:false); only a hard failure throws.
+  if (!res.ok && res.status !== 503) throw new Error(`Create failed (HTTP ${res.status})`)
+  return res.json()
+}
+
+export async function getPortfolioName(portfolioId: string, signal?: AbortSignal): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/portfolios/${encodeURIComponent(portfolioId)}`, { signal })
+    if (!res.ok) return null
+    return (await res.json()).name ?? null
+  } catch {
+    return null
+  }
+}
+
 /** Persists a company to a portfolio. Returns true if stored, false if the store is unavailable. */
 export async function addPortfolioCompany(portfolioId: string, company: PersistedCompany): Promise<boolean> {
   try {

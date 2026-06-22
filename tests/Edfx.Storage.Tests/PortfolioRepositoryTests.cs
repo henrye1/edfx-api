@@ -38,6 +38,26 @@ public class PortfolioRepositoryTests
     }
 
     [SkippableFact]
+    public void Create_then_list_returns_portfolio_with_company_aggregates()
+    {
+        _fx.ApplyMigrations();
+        var repo = new PortfolioRepository(new Db(_fx.Conn!));
+
+        repo.CreatePortfolio("my-bank-abc123", "My Bank", "henry");
+        repo.AddCompany("my-bank-abc123", new PortfolioCompany("E1", "A", "IND", 0.01, "Ba1", "Low", "Improved", null, default));
+        repo.AddCompany("my-bank-abc123", new PortfolioCompany("E2", "B", "IND", 0.03, "B1", "Severe", "Deteriorated", null, default));
+
+        var rows = repo.ListPortfolios();
+        var p = rows.Single(r => r.PortfolioId == "my-bank-abc123");
+        Assert.Equal("My Bank", p.Name);
+        Assert.Equal(2, p.CompanyCount);
+        Assert.Equal(1, p.Low);
+        Assert.Equal(1, p.Severe);
+        Assert.Equal(0.02, p.PdMedian); // median of 0.01, 0.03
+        Assert.Equal("My Bank", repo.GetPortfolioName("my-bank-abc123"));
+    }
+
+    [SkippableFact]
     public void Remove_deletes_the_membership()
     {
         _fx.ApplyMigrations();
