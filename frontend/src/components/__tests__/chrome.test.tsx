@@ -1,18 +1,24 @@
 import { describe, it, expect } from 'vitest'
+import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { TopBar } from '../chrome/TopBar'
 import { IconRail } from '../chrome/IconRail'
 import { EntitySubNav } from '../chrome/EntitySubNav'
 
+const router = (ui: ReactNode) => <MemoryRouter>{ui}</MemoryRouter>
+
 describe('chrome', () => {
-  it('TopBar shows wordmark and search', () => {
-    render(<TopBar userName="Henry" userEmail="henry@x.co" />)
-    expect(screen.getByText(/MOODY/)).toBeInTheDocument()
+  it('TopBar shows wordmark (linking home) and search', () => {
+    render(router(<TopBar userName="Henry" userEmail="henry@x.co" />))
+    expect(screen.getByText(/MOODY/).closest('a')).toHaveAttribute('href', '/')
     expect(screen.getByPlaceholderText(/Search by Company Name/)).toBeInTheDocument()
   })
-  it('IconRail marks the active item', () => {
-    const { container } = render(<IconRail active="portfolios" />)
-    expect(container.querySelector('[data-active="true"]')).toBeTruthy()
+  it('IconRail marks the active item and links portfolios home', () => {
+    const { container } = render(router(<IconRail active="portfolios" />))
+    const active = container.querySelector('[data-active="true"]')
+    expect(active).toBeTruthy()
+    expect(active).toHaveAttribute('href', '/')
   })
   it('EntitySubNav highlights the active section', () => {
     render(<EntitySubNav active="Summary" />)

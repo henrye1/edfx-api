@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
 import { data } from '../../data'
 import type { EntityDetail as ED } from '../../data/types'
@@ -15,13 +15,44 @@ const RANGES = ['3M', '6M', '1Y', '2Y', '3Y', '5Y', 'All']
 
 export function EntityDetail() {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
   const [e, setE] = useState<ED | undefined>()
+  const [loaded, setLoaded] = useState(false)
   const [range, setRange] = useState('1Y')
-  useEffect(() => { data.getEntity(id).then(setE) }, [id])
-  if (!e) return null
+  useEffect(() => {
+    setLoaded(false)
+    data.getEntity(id).then((x) => { setE(x); setLoaded(true) })
+  }, [id])
+
+  const BackBar = (
+    <div className="mb-3 flex items-center gap-3">
+      <button onClick={() => navigate(-1)} className="text-xs text-brand">‹ Back</button>
+      <Link to="/" className="text-xs text-muted">My Portfolios</Link>
+    </div>
+  )
+
+  if (!loaded) return <div>{BackBar}<div className="text-sm text-muted">Loading…</div></div>
+
+  if (!e) {
+    return (
+      <div>
+        {BackBar}
+        <div className="rounded-card bg-card p-6 shadow-card">
+          <div className="text-base font-semibold text-ink">No analytics available for this entity yet</div>
+          <p className="mt-2 max-w-prose text-sm text-muted">
+            Entity <b className="text-ink">{id}</b> was found in EDF-X search, but its detailed
+            analytics (PD, implied rating, early-warning, peers) are not loaded in this build.
+            Only <b className="text-ink">The Bidvest Group Ltd</b> has a full mock profile. Wiring
+            live entity analytics is the next step.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div>
+      {BackBar}
       <div className="text-xl font-bold text-ink">
         {e.name} <span className="ml-1 rounded-md bg-[#eef2ff] px-1.5 py-0.5 text-[11px] text-brand">{e.version} ⓘ</span>
       </div>

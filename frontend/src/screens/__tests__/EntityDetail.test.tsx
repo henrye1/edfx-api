@@ -16,4 +16,13 @@ describe('EntityDetail', () => {
     expect(await screen.findByText('The Bidvest Group Ltd')).toBeInTheDocument()
     expect(screen.getByText('1-Year PiT PD vs. Trigger')).toBeInTheDocument()
   })
+
+  it('shows a graceful empty state (with back nav) for an entity without analytics', async () => {
+    render(<MemoryRouter initialEntries={['/entity/UNKNOWN123']}>
+      <Routes><Route path="/entity/:id" element={<EntityDetail />} /></Routes>
+    </MemoryRouter>)
+    expect(await screen.findByText(/No analytics available/)).toBeInTheDocument()
+    expect(screen.getByText('‹ Back')).toBeInTheDocument()
+    expect(screen.getByText('My Portfolios')).toBeInTheDocument()
+  })
 })
