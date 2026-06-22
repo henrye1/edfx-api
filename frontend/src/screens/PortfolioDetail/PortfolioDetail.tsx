@@ -10,6 +10,8 @@ import { DataTable, type Column } from '../../components/DataTable'
 import { DirectionalDelta } from '../../components/DirectionalDelta'
 import { RatingBadge } from '../../components/RatingBadge'
 import { RiskGauge } from '../../components/RiskGauge'
+import { AddCompanyDialog } from '../../components/AddCompanyDialog'
+import type { EntityHit } from '../../data/search'
 import { riskColor } from '../../tokens'
 
 const TABS = ['All', 'With EWS', 'Need Additional Data']
@@ -17,12 +19,34 @@ const TABS = ['All', 'With EWS', 'Need Additional Data']
 export function PortfolioDetail() {
   const { id = '' } = useParams()
   const [pf, setPf] = useState<PD | undefined>()
+  const [companies, setCompanies] = useState<CompanyRow[]>([])
   const [tab, setTab] = useState('All')
-  useEffect(() => { data.getPortfolio(id).then(setPf) }, [id])
+  useEffect(() => {
+    data.getPortfolio(id).then((p) => { setPf(p); setCompanies(p?.companies ?? []) })
+  }, [id])
   if (!pf) return null
 
-  const filtered = pf.companies.filter((c) =>
-    tab === 'All' ? true : tab === 'With EWS' ? c.ews !== 'Need Additional Data' : c.peerPercentile == null)
+  // A newly added company has no analytics yet — show it as needing data until extracted.
+  const addCompany = (hit: EntityHit) => {
+    setCompanies((prev) => {
+      if (prev.some((c) => c.id === hit.entityId)) return prev
+      const row: CompanyRow = {
+        id: hit.entityId,
+        name: hit.internationalName ?? hit.entityId,
+        industry: (hit.primaryIndustryNDYDescription ?? '—').toUpperCase(),
+        ews: 'Need Additional Data',
+        ewsChange: 'No Change',
+        pd: 0,
+        pdYoYBps: 0,
+        rating: '—',
+        peerPercentile: null,
+      }
+      return [row, ...prev]
+    })
+  }
+
+  const filtered = companies.filter((c) =>
+    tab === 'All' ? true : tab === 'With EWS' ? c.ews !== 'Need Additional Data' : c.ews === 'Need Additional Data')
 
   const columns: Column<CompanyRow>[] = [
     { key: 'id', header: 'Company ID', render: (c) => c.id },
@@ -31,8 +55,8 @@ export function PortfolioDetail() {
     { key: 'ews', header: 'Early Warning Signal', sortValue: (c) => c.ews,
       render: (c) => <span><span className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ backgroundColor: riskColor(c.ews) }} />{c.ews}</span> },
     { key: 'ewschg', header: 'EWS Change', render: (c) => <span className={c.ewsChange === 'Deteriorated' ? 'text-bad' : c.ewsChange === 'Improved' ? 'text-good' : 'text-muted'}>{c.ewsChange}</span> },
-    { key: 'pd', header: '1-Year PD', sortValue: (c) => c.pd, render: (c) => `${c.pd.toFixed(2)}%` },
-    { key: 'yoy', header: 'YoY (bps)', sortValue: (c) => c.pdYoYBps, render: (c) => <DirectionalDelta bps={c.pdYoYBps} /> },
+    { key: 'pd', header: '1-Year PD', sortValue: (c) => c.pd, render: (c) => c.ews === 'Need Additional Data' ? '—' : `${c.pd.toFixed(2)}%` },
+    { key: 'yoy', header: 'YoY (bps)', sortValue: (c) => c.pdYoYBps, render: (c) => c.ews === 'Need Additional Data' ? <span className="text-muted">—</span> : <DirectionalDelta bps={c.pdYoYBps} /> },
     { key: 'rating', header: 'Rating', render: (c) => <RatingBadge value={c.rating} /> },
     { key: 'peer', header: 'Peer Distribution', render: (c) => <RiskGauge percentile={c.peerPercentile} /> },
   ]
@@ -44,7 +68,7 @@ export function PortfolioDetail() {
         <h1 className="text-xl font-bold text-ink">☰ {pf.name.toUpperCase()}</h1>
         <div className="flex gap-2">
           <button className="rounded-full border border-brand px-4 py-1.5 text-xs text-brand">Download ▾</button>
-          <button className="rounded-full bg-brand px-4 py-1.5 text-xs text-white">Add Company ▾</button>
+          <AddCompanyDialog onAdd={addCompany} existingIds={new Set(companies.map((c) => c.id))} />
         </div>
       </div>
       <div className="mb-3 text-[11px] text-[#9aa0ab]">👤 Owner · 🔒 Just me</div>
@@ -72,7 +96,7 @@ export function PortfolioDetail() {
           <span className="ml-auto text-xs text-muted">Filter by: EWS Change ▾</span>
         </div>
         <DataTable columns={columns} rows={filtered} rowKey={(c) => c.id} checkbox />
-        <div className="mt-2.5 text-right text-[11px] text-muted">Items per page: 10 ▾ &nbsp; 1–{filtered.length} of {pf.companies.length} &nbsp; ‹ ›</div>
+        <div className="mt-2.5 text-right text-[11px] text-muted">Items per page: 10 ▾ &nbsp; 1–{filtered.length} of {companies.length} &nbsp; ‹ ›</div>
       </div>
     </div>
   )
