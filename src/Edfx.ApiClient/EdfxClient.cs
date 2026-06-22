@@ -38,12 +38,48 @@ public class EdfxClient : IEdfxClient
         return (JsonSerializer.Deserialize<EntitySearchResponse>(raw, J)!, raw);
     }
 
-    public Task<(string raw, int status)> ExtractAsync(string section, IEnumerable<string> entityIds,
+    public async Task<(string raw, int status)> ExtractAsync(string section, IEnumerable<string> entityIds,
         string? startDate = null, string? endDate = null, string? historyFrequency = null)
     {
         var ents = entityIds.Select(id => new { entityId = id }).ToArray();
+        var path = PathFor(section);
+
+        // The triggers endpoint requires a peerId that the other sections don't carry.
+        // Resolve it from riskCategory for the same entities, then include it in the body.
+        if (section == "triggers")
+        {
+            var (peerId, rcRaw, rcStatus) = await ResolvePeerIdAsync(ents);
+            if (peerId is null) return (rcRaw, rcStatus); // surface the upstream failure
+            return await PostRawAsync(path, new { entities = ents, peerId, startDate, endDate, historyFrequency });
+        }
+
         object body = new { entities = ents, startDate, endDate, historyFrequency };
-        var path = section switch
+        return await PostRawAsync(path, body);
+    }
+
+    // Calls riskCategory and extracts the peerId of the first entity. Returns a null
+    // peerId (with the raw response and status) when the call fails or no peerId is present.
+    private async Task<(string? peerId, string raw, int status)> ResolvePeerIdAsync(object[] ents)
+    {
+        var (raw, status) = await PostRawAsync(PathFor("risk_category"), new { entities = ents });
+        if (status is < 200 or >= 300) return (null, raw, status);
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (doc.RootElement.TryGetProperty("entities", out var arr)
+                && arr.ValueKind == JsonValueKind.Array && arr.GetArrayLength() > 0
+                && arr[0].TryGetProperty("peerId", out var pid)
+                && pid.ValueKind == JsonValueKind.String)
+            {
+                return (pid.GetString(), raw, status);
+            }
+        }
+        catch (JsonException) { }
+        return (null, raw, status);
+    }
+
+    private static string PathFor(string section) =>
+        section switch
         {
             "pds"               => "entities/pds",
             "pds_creditedge"    => "entities/pds/creditedge",
@@ -62,8 +98,6 @@ public class EdfxClient : IEdfxClient
             "credit_limit"      => "tools/creditLimit",
             _ => throw new ArgumentException($"Unknown section '{section}'")
         };
-        return PostRawAsync(path, body);
-    }
 
     public async Task<byte[]> DownloadTemplateAsync(string kind)
     {

@@ -11,6 +11,11 @@ public class EndpointPathTests
               .RespondWith(Response.Create().WithBody("""{"id_token":"T","token_type":"Bearer"}"""));
         server.Given(Request.Create().UsingPost())
               .RespondWith(Response.Create().WithStatusCode(200).WithBody("{}"));
+        // The triggers section first resolves a peerId from riskCategory; give it one so the
+        // two-step flow proceeds to call /tools/triggers (this body also satisfies risk_category).
+        server.Given(Request.Create().WithPath("/tools/riskCategory").UsingPost())
+              .RespondWith(Response.Create().WithStatusCode(200)
+                 .WithBody("""{"entities":[{"peerId":"P"}]}"""));
         var opts = new EdfxOptions { TokenUrl = server.Url + "/token", BaseUrl = server.Url + "/" };
         var http = new HttpClient { BaseAddress = new Uri(server.Url + "/") };
         return (new EdfxClient(http, new TokenProvider(new HttpClient(), opts), opts), server);
