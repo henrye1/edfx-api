@@ -11,7 +11,9 @@ import { EntityDetail } from '../EntityDetail/EntityDetail'
 function stubFetch() {
   vi.stubGlobal('fetch', vi.fn(async (url: unknown) => {
     const u = String(url)
-    const body = u.includes('/profile')
+    const body = u.includes('/whatif')
+      ? { status: 'completed', pd: 0.0094, impliedRating: 'Ba1', asOfDate: '2026-06-01' }
+      : u.includes('/profile')
       ? { entityId: 'X', internationalName: 'Sasol Ltd', ticker: 'SOL', countryName: 'South Africa' }
       : u.includes('/financials')
         ? { statement: { currency: 'ZAR', balanceSheet: { totalCurrentAssets: 53929664 } }, ratios: { leverage: { ratioTotalDebtToTotalAssets: 0.357 } } }
@@ -64,5 +66,14 @@ describe('EntityDetail sections', () => {
     await userEvent.click(screen.getByText(/Instruments/))
     expect(await screen.findByText(/no instrument-level analytics endpoint/)).toBeInTheDocument()
     expect(screen.getByText('Not available via API')).toBeInTheDocument()
+  })
+
+  it('runs the What If recompute and shows the result', async () => {
+    stubFetch()
+    renderEntity()
+    await screen.findByText('Sasol Ltd')
+    await userEvent.click(screen.getByText(/What If/))
+    await userEvent.click(await screen.findByText('Recompute PD'))
+    expect(await screen.findByText('What-If (your inputs)')).toBeInTheDocument()
   })
 })

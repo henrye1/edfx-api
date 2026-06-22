@@ -115,7 +115,8 @@ public class EdfxClient : IEdfxClient
         var content = new MultipartFormDataContent();
         var file = new ByteArrayContent(csv);
         file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/csv");
-        content.Add(file, "file", fileName);
+        // The modelInputs endpoint expects the file under the form field "uploadedFile".
+        content.Add(file, "uploadedFile", fileName);
         var req = new HttpRequestMessage(HttpMethod.Post, "entities/modelInputs") { Content = content };
         req.Headers.Add("Authorization", $"Bearer {await _tokens.GetTokenAsync()}");
         using var resp = await _http.SendAsync(req);

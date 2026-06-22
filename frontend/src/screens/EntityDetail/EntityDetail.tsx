@@ -8,6 +8,7 @@ import { SummaryPanel } from './SummaryPanel'
 import { CompanyProfilePanel } from './CompanyProfilePanel'
 import { CreditRiskPanel } from './CreditRiskPanel'
 import { FinancialsPanel } from './FinancialsPanel'
+import { WhatIfPanel } from './WhatIfPanel'
 import { PlaceholderPanel } from './PlaceholderPanel'
 
 export function EntityDetail() {
@@ -73,7 +74,7 @@ export function EntityDetail() {
           {section === 'Credit Risk' && <CreditRiskPanel summary={summary} />}
           {section === 'Financials' && <FinancialsPanel entityId={id} />}
           {section === 'Instruments' && <PlaceholderPanel title="Instruments" />}
-          {section === 'What If' && <PlaceholderPanel title="What If" />}
+          {section === 'What If' && <WhatIfPanel entityId={id} summary={summary} />}
           {section === 'Credit Sentiment Score' && <PlaceholderPanel title="Credit Sentiment Score" />}
         </div>
       </div>

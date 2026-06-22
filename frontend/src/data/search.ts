@@ -92,3 +92,23 @@ export async function getEntityFinancials(id: string, signal?: AbortSignal): Pro
   if (!res.ok) throw new Error(`Financials failed (HTTP ${res.status})`)
   return res.json()
 }
+
+/** Recomputed PD result from the what-if (modelInputs) flow. */
+export interface WhatIfResult {
+  status: 'completed' | 'failed' | 'error'
+  pd?: number | null
+  impliedRating?: string | null
+  asOfDate?: string | null
+  error?: string | null
+}
+
+export async function computeWhatIf(id: string, overrides: Record<string, number>, signal?: AbortSignal): Promise<WhatIfResult> {
+  const res = await fetch(`/api/entities/${encodeURIComponent(id)}/whatif`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ overrides }),
+    signal,
+  })
+  if (!res.ok) throw new Error(`What-if failed (HTTP ${res.status})`)
+  return res.json()
+}
