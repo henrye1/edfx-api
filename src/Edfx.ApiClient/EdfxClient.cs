@@ -31,7 +31,10 @@ public class EdfxClient : IEdfxClient
 
     public async Task<(EntitySearchResponse, string)> SearchAsync(string query, int limit = 20, int offset = 0)
     {
-        var (raw, _) = await PostRawAsync("entity/v1/search", new { query, limit, offset });
+        // Search lives at the host root (https://api.edfx.moodysanalytics.com/entity/v1/search),
+        // NOT under the /edfx/v1/ base used by entities/* and tools/* endpoints. The leading slash
+        // makes HttpClient resolve the path against the authority, dropping the /edfx/v1/ prefix.
+        var (raw, _) = await PostRawAsync("/entity/v1/search", new { query, limit, offset });
         return (JsonSerializer.Deserialize<EntitySearchResponse>(raw, J)!, raw);
     }
 
