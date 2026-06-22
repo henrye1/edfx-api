@@ -129,4 +129,14 @@ public class PortfolioRepository
         cmd.Parameters.AddWithValue("e", entityId);
         cmd.ExecuteNonQuery();
     }
+
+    /// <summary>Deletes a portfolio and all of its company memberships.</summary>
+    public void DeletePortfolio(string portfolioId)
+    {
+        using var conn = _db.Open();
+        using var cmd = new NpgsqlCommand(
+            "delete from portfolio_companies where portfolio_id=@p; delete from portfolios where portfolio_id=@p;", conn);
+        cmd.Parameters.AddWithValue("p", portfolioId);
+        cmd.ExecuteNonQuery();
+    }
 }

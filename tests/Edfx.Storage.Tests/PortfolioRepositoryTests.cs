@@ -66,4 +66,18 @@ public class PortfolioRepositoryTests
         repo.RemoveCompany("p2", "E9");
         Assert.Empty(repo.Companies("p2"));
     }
+
+    [SkippableFact]
+    public void DeletePortfolio_removes_portfolio_and_its_companies()
+    {
+        _fx.ApplyMigrations();
+        var repo = new PortfolioRepository(new Db(_fx.Conn!));
+        repo.CreatePortfolio("p3", "Temp", "henry");
+        repo.AddCompany("p3", new PortfolioCompany("E1", "Co", null, 0.01, "Ba1", "Low", null, null, default));
+
+        repo.DeletePortfolio("p3");
+
+        Assert.Empty(repo.Companies("p3"));
+        Assert.DoesNotContain(repo.ListPortfolios(), p => p.PortfolioId == "p3");
+    }
 }

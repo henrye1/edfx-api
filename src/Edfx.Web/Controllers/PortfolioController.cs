@@ -97,6 +97,30 @@ public class PortfolioController : ControllerBase
         }
     }
 
+    /// <summary>Deletes a portfolio and its companies.</summary>
+    [HttpDelete("{id}")]
+    public ActionResult Delete(string id)
+    {
+        try { _repo.DeletePortfolio(id); return Ok(new { deleted = true }); }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Portfolio delete failed for {PortfolioId}", id);
+            return StatusCode(503, new { deleted = false, error = "Persistence unavailable." });
+        }
+    }
+
+    /// <summary>Removes a single company from a portfolio.</summary>
+    [HttpDelete("{id}/companies/{entityId}")]
+    public ActionResult RemoveCompany(string id, string entityId)
+    {
+        try { _repo.RemoveCompany(id, entityId); return Ok(new { removed = true }); }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Remove company failed for {PortfolioId}/{EntityId}", id, entityId);
+            return StatusCode(503, new { removed = false, error = "Persistence unavailable." });
+        }
+    }
+
     /// <summary>Persists a company (with its loaded data snapshot) into a portfolio.</summary>
     [HttpPost("{id}/companies")]
     public ActionResult AddCompany(string id, [FromBody] AddCompanyRequest req)

@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { data } from '../../data'
 import type { PortfolioSummary } from '../../data/types'
-import { listPortfolios, type PersistedPortfolio } from '../../data/search'
+import { listPortfolios, deletePortfolio, type PersistedPortfolio } from '../../data/search'
 import { DataTable, type Column } from '../../components/DataTable'
 import { StackedDistributionBar } from '../../components/StackedDistributionBar'
 import { DirectionalDelta } from '../../components/DirectionalDelta'
 import { RatingBadge } from '../../components/RatingBadge'
 import { Sparkline } from '../../components/Sparkline'
 import { NewPortfolioDialog } from '../../components/NewPortfolioDialog'
+import { ConfirmButton } from '../../components/ConfirmButton'
 
 const persistedToSummary = (p: PersistedPortfolio): PortfolioSummary => ({
   id: p.portfolioId,
@@ -24,21 +25,29 @@ const persistedToSummary = (p: PersistedPortfolio): PortfolioSummary => ({
 export function PortfolioList() {
   const navigate = useNavigate()
   const [rows, setRows] = useState<PortfolioSummary[]>([])
+  const [persistedIds, setPersistedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     let active = true
     Promise.all([data.getPortfolios(), listPortfolios()]).then(([mock, persisted]) => {
       if (!active) return
       const persistedRows = persisted.map(persistedToSummary)
-      const persistedIds = new Set(persistedRows.map((r) => r.id))
+      const ids = new Set(persistedRows.map((r) => r.id))
+      setPersistedIds(ids)
       // User-created portfolios first, then the demo seeds not already persisted.
-      setRows([...persistedRows, ...mock.filter((m) => !persistedIds.has(m.id))])
+      setRows([...persistedRows, ...mock.filter((m) => !ids.has(m.id))])
     })
     return () => { active = false }
   }, [])
 
   const onCreated = (id: string, name: string, persisted: boolean) =>
     navigate(`/portfolio/${id}`, { state: { name, persisted } })
+
+  const remove = async (id: string) => {
+    await deletePortfolio(id)
+    setRows((prev) => prev.filter((r) => r.id !== id))
+    setPersistedIds((prev) => { const n = new Set(prev); n.delete(id); return n })
+  }
 
   const columns: Column<PortfolioSummary>[] = [
     { key: 'name', header: 'Portfolio Name', sortValue: (r) => r.name,
@@ -51,6 +60,9 @@ export function PortfolioList() {
     { key: 'rating', header: 'Implied Rating', render: (r) => <RatingBadge value={r.impliedRating} /> },
     { key: 'trend', header: '12-Month Trend', render: (r) => <Sparkline points={r.trend} /> },
     { key: 'by', header: 'Created By', render: (r) => r.createdBy },
+    { key: 'del', header: '', render: (r) => persistedIds.has(r.id)
+      ? <ConfirmButton label="Delete" onConfirm={() => remove(r.id)} />
+      : <span className="text-[11px] text-muted">—</span> },
   ]
 
   return (

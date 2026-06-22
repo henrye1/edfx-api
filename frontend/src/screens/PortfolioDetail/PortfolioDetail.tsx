@@ -11,8 +11,9 @@ import { DirectionalDelta } from '../../components/DirectionalDelta'
 import { RatingBadge } from '../../components/RatingBadge'
 import { RiskGauge } from '../../components/RiskGauge'
 import { AddCompanyDialog } from '../../components/AddCompanyDialog'
+import { ConfirmButton } from '../../components/ConfirmButton'
 import {
-  getEntitySummary, getPortfolioCompanies, addPortfolioCompany, getPortfolioName,
+  getEntitySummary, getPortfolioCompanies, addPortfolioCompany, getPortfolioName, removePortfolioCompany,
   type EntityHit, type PersistedCompany,
 } from '../../data/search'
 import { riskColor, RISK_LEVELS, type RiskLevel } from '../../tokens'
@@ -110,6 +111,12 @@ export function PortfolioDetail() {
     setCompanies((prev) => prev.some((c) => c.id === hit.entityId) ? prev : [persistedToRow(payload), ...prev])
   }
 
+  const removeCompany = async (entityId: string, companyName: string) => {
+    await removePortfolioCompany(id, entityId)
+    setCompanies((prev) => prev.filter((c) => c.id !== entityId))
+    setNotice(`${companyName} removed from the portfolio.`)
+  }
+
   const filtered = companies.filter((c) =>
     tab === 'All' ? true : tab === 'With EWS' ? c.ews !== 'Need Additional Data' : c.ews === 'Need Additional Data')
 
@@ -124,6 +131,7 @@ export function PortfolioDetail() {
     { key: 'yoy', header: 'YoY (bps)', sortValue: (c) => c.pdYoYBps, render: (c) => c.ews === 'Need Additional Data' ? <span className="text-muted">—</span> : <DirectionalDelta bps={c.pdYoYBps} /> },
     { key: 'rating', header: 'Rating', render: (c) => <RatingBadge value={c.rating} /> },
     { key: 'peer', header: 'Peer Distribution', render: (c) => <RiskGauge percentile={c.peerPercentile} /> },
+    { key: 'remove', header: '', render: (c) => <ConfirmButton label="Remove" onConfirm={() => removeCompany(c.id, c.name)} /> },
   ]
 
   return (

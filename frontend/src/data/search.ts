@@ -183,6 +183,26 @@ export async function getPortfolioName(portfolioId: string, signal?: AbortSignal
   }
 }
 
+/** Deletes a portfolio (and its companies). Returns true if it was removed from the store. */
+export async function deletePortfolio(portfolioId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/portfolios/${encodeURIComponent(portfolioId)}`, { method: 'DELETE' })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** Removes a single company from a portfolio. Returns true if removed from the store. */
+export async function removePortfolioCompany(portfolioId: string, entityId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/portfolios/${encodeURIComponent(portfolioId)}/companies/${encodeURIComponent(entityId)}`, { method: 'DELETE' })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 /** Persists a company to a portfolio. Returns true if stored, false if the store is unavailable. */
 export async function addPortfolioCompany(portfolioId: string, company: PersistedCompany): Promise<boolean> {
   try {
