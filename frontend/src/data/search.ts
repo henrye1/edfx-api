@@ -32,6 +32,13 @@ export interface PdPoint {
   impliedRating?: string | null
 }
 
+/** One tenor point of the PD term structure. */
+export interface TermPoint {
+  tenor: string
+  forward?: number | null
+  cumulative?: number | null
+}
+
 /** Live summary KPIs + history for one entity (from the .NET /summary endpoint). */
 export interface EntitySummaryLive {
   entityId: string
@@ -43,10 +50,45 @@ export interface EntitySummaryLive {
   ewsChange?: string | null     // Deteriorated/Improved/No Change
   trigger?: number | null       // EWS trigger PD level
   pdHistory?: PdPoint[]
+  termStructure?: TermPoint[]
 }
 
 export async function getEntitySummary(id: string, signal?: AbortSignal): Promise<EntitySummaryLive> {
   const res = await fetch(`/api/entities/${encodeURIComponent(id)}/summary`, { signal })
   if (!res.ok) throw new Error(`Summary failed (HTTP ${res.status})`)
+  return res.json()
+}
+
+/** Firmographic profile (identifiers, industry, location) for the Company Profile section. */
+export interface EntityProfile {
+  entityId: string
+  internationalName?: string | null
+  identifierBvd?: string | null
+  identifierOrbis?: string | null
+  pid?: string | null
+  ticker?: string | null
+  countryName?: string | null
+  contactCity?: string | null
+  primaryIndustryNDYDescription?: string | null
+  hasFinancials?: string | null
+  peerGroupId1?: string | null
+  peerGroupId2?: string | null
+}
+
+export async function getEntityProfile(id: string, signal?: AbortSignal): Promise<EntityProfile> {
+  const res = await fetch(`/api/entities/${encodeURIComponent(id)}/profile`, { signal })
+  if (!res.ok) throw new Error(`Profile failed (HTTP ${res.status})`)
+  return res.json()
+}
+
+/** Raw statement + ratios objects (nested groups) for the Financials section. */
+export interface Financials {
+  statement?: Record<string, unknown> | null
+  ratios?: Record<string, unknown> | null
+}
+
+export async function getEntityFinancials(id: string, signal?: AbortSignal): Promise<Financials> {
+  const res = await fetch(`/api/entities/${encodeURIComponent(id)}/financials`, { signal })
+  if (!res.ok) throw new Error(`Financials failed (HTTP ${res.status})`)
   return res.json()
 }

@@ -13,7 +13,15 @@ public record PdPoint
     public string? ImpliedRating { get; init; }
 }
 
-/// <summary>Summary KPIs + history for the entity detail page (live EDF-X or mock).</summary>
+/// <summary>One tenor point of the PD term structure.</summary>
+public record TermPoint
+{
+    public string Tenor { get; init; } = "";    // e.g. "1y"
+    public double? Forward { get; init; }
+    public double? Cumulative { get; init; }
+}
+
+/// <summary>Summary KPIs + history + term structure for the entity detail page.</summary>
 public record EntitySummaryDto
 {
     public string EntityId { get; init; } = "";
@@ -25,6 +33,14 @@ public record EntitySummaryDto
     public string? EwsChange { get; init; }     // Deteriorated / Improved / No Change
     public double? Trigger { get; init; }        // EWS trigger PD level (point-in-time)
     public List<PdPoint> PdHistory { get; init; } = new();
+    public List<TermPoint> TermStructure { get; init; } = new();
+}
+
+/// <summary>Financial statement + ratios passthrough for the Financials section.</summary>
+public record FinancialsDto
+{
+    public JsonElement? Statement { get; init; }
+    public JsonElement? Ratios { get; init; }
 }
 
 [ApiController]
@@ -65,6 +81,7 @@ public class SearchController : ControllerBase
 
         double? pd = null, trigger = null; string? rating = null, asOf = null, ews = null, ewsChange = null;
         var history = new List<PdPoint>();
+        var term = new List<TermPoint>();
 
         // Pull a 12-month monthly history so the trend charts can be driven live.
         var startDate = DateTime.UtcNow.AddMonths(-12).ToString("yyyy-MM-dd");
@@ -78,6 +95,18 @@ public class SearchController : ControllerBase
             if (pe.TryGetProperty("history", out var hist) && hist.ValueKind == JsonValueKind.Array)
                 foreach (var h in hist.EnumerateArray())
                     history.Add(new PdPoint { Date = Str(h, "asOfDate"), Pd = Dbl(h, "pd"), ImpliedRating = Str(h, "impliedRating") });
+            // PD term structure: forwardNy / cumulativeNy for tenors 1..10
+            if (pe.TryGetProperty("termStructure", out var ts))
+            {
+                ts.TryGetProperty("forward", out var fwd);
+                ts.TryGetProperty("cumulative", out var cum);
+                for (var y = 1; y <= 10; y++)
+                {
+                    var f = fwd.ValueKind == JsonValueKind.Object ? Dbl(fwd, $"forward{y}y") : null;
+                    var c = cum.ValueKind == JsonValueKind.Object ? Dbl(cum, $"cumulative{y}y") : null;
+                    if (f != null || c != null) term.Add(new TermPoint { Tenor = $"{y}y", Forward = f, Cumulative = c });
+                }
+            }
         }
 
         var (rcRaw, rcStatus) = await _client.ExtractAsync("risk_category", new[] { id });
@@ -93,8 +122,40 @@ public class SearchController : ControllerBase
         {
             EntityId = id, Name = name, AsOfDate = asOf,
             Pd = pd, ImpliedRating = rating, Ews = ews, EwsChange = ewsChange,
-            Trigger = trigger, PdHistory = history,
+            Trigger = trigger, PdHistory = history, TermStructure = term,
         };
+    }
+
+    /// <summary>Firmographic profile (identifiers, industry, location) via EDF-X search.</summary>
+    [HttpGet("{id}/profile")]
+    public async Task<ActionResult<EntitySummary>> Profile(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return BadRequest();
+        var (search, _) = await _client.SearchAsync(id, 1);
+        return search.Entities.FirstOrDefault() ?? new EntitySummary { EntityId = id };
+    }
+
+    /// <summary>Latest financial statement + ratios for the Financials section.</summary>
+    [HttpGet("{id}/financials")]
+    public async Task<ActionResult<FinancialsDto>> Financials(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return BadRequest();
+        var (sRaw, sStatus) = await _client.ExtractAsync("statements", new[] { id });
+        var (rRaw, rStatus) = await _client.ExtractAsync("ratios", new[] { id });
+        return new FinancialsDto
+        {
+            Statement = sStatus is >= 200 and < 300 ? FirstArrayItem(sRaw, "statements") : null,
+            Ratios = rStatus is >= 200 and < 300 ? FirstArrayItem(rRaw, "ratios") : null,
+        };
+    }
+
+    // entities[0].<prop>[0] — the latest statement/ratios record.
+    private static JsonElement? FirstArrayItem(string raw, string prop)
+    {
+        if (FirstEntity(raw) is not { } e) return null;
+        if (e.TryGetProperty(prop, out var arr) && arr.ValueKind == JsonValueKind.Array && arr.GetArrayLength() > 0)
+            return arr[0].Clone();
+        return null;
     }
 
     private static JsonElement? FirstEntity(string raw)

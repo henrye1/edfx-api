@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { TopBar } from '../chrome/TopBar'
 import { IconRail } from '../chrome/IconRail'
@@ -23,5 +24,11 @@ describe('chrome', () => {
   it('EntitySubNav highlights the active section', () => {
     render(<EntitySubNav active="Summary" />)
     expect(screen.getByText('Summary').getAttribute('aria-current')).toBe('true')
+  })
+  it('EntitySubNav fires onSelect when a section is clicked', async () => {
+    const onSelect = vi.fn()
+    render(<EntitySubNav active="Summary" onSelect={onSelect} />)
+    await userEvent.click(screen.getByText('Company Profile'))
+    expect(onSelect).toHaveBeenCalledWith('Company Profile')
   })
 })

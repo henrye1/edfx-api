@@ -65,4 +65,37 @@ public class SearchControllerTests
         Assert.Equal(2, dto.PdHistory.Count);
         Assert.Equal(0.0018, dto.PdHistory[0].Pd);
     }
+
+    [Fact]
+    public async Task Profile_returns_first_search_hit()
+    {
+        var client = Substitute.For<IEdfxClient>();
+        client.SearchAsync("ZA1", 1, 0).Returns((
+            new EntitySearchResponse { Entities = { new EntitySummary { EntityId = "ZA1", InternationalName = "Sasol Ltd", CountryName = "South Africa", Ticker = "SOL" } } },
+            "{}"));
+        var sut = new SearchController(client);
+
+        var dto = (await sut.Profile("ZA1")).Value!;
+
+        Assert.Equal("Sasol Ltd", dto.InternationalName);
+        Assert.Equal("SOL", dto.Ticker);
+    }
+
+    [Fact]
+    public async Task Financials_returns_latest_statement_and_ratios()
+    {
+        var client = Substitute.For<IEdfxClient>();
+        client.ExtractAsync("statements", Arg.Any<IEnumerable<string>>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+              .Returns(("{\"entities\":[{\"statements\":[{\"currency\":\"ZAR\",\"balanceSheet\":{\"totalCurrentAssets\":100}}]}]}", 200));
+        client.ExtractAsync("ratios", Arg.Any<IEnumerable<string>>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+              .Returns(("{\"entities\":[{\"ratios\":[{\"leverage\":{\"ratioTotalDebtToTotalAssets\":0.36}}]}]}", 200));
+        var sut = new SearchController(client);
+
+        var dto = (await sut.Financials("ZA1")).Value!;
+
+        Assert.NotNull(dto.Statement);
+        Assert.Equal("ZAR", dto.Statement!.Value.GetProperty("currency").GetString());
+        Assert.NotNull(dto.Ratios);
+        Assert.True(dto.Ratios!.Value.GetProperty("leverage").GetProperty("ratioTotalDebtToTotalAssets").GetDouble() > 0);
+    }
 }
