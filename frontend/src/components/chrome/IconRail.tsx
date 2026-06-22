@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 const ITEMS = [
   { key: 'portfolios', glyph: '▤', to: '/' }, { key: 'filters', glyph: '⚙' },
-  { key: 'upload', glyph: '⬆' }, { key: 'analytics', glyph: '📈' },
+  { key: 'upload', glyph: '⬆', to: '/upload' }, { key: 'analytics', glyph: '📈' },
   { key: 'alerts', glyph: '🔔' }, { key: 'settings', glyph: '⚙' },
 ]
 

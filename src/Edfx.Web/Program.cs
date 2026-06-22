@@ -38,6 +38,7 @@ builder.Services.AddScoped<PortfolioRepository>();
 builder.Services.AddScoped<IExtractionSaver, SaverAdapter>();
 builder.Services.AddScoped<ExtractionService>();
 builder.Services.AddHttpClient<WhatIfService>();
+builder.Services.AddHttpClient<UploadScoreService>();
 builder.Services.AddControllers();
 
 var app = builder.Build();

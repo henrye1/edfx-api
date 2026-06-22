@@ -185,6 +185,32 @@ export async function getPortfolioName(portfolioId: string, signal?: AbortSignal
   }
 }
 
+/** Result of scoring an uploaded financials file via the modelInputs flow. */
+export interface NamedValue { label: string; value?: number | null }
+export interface FinGroup { group: string; items: NamedValue[] }
+export interface UploadScoreResult {
+  status: 'completed' | 'failed' | 'error'
+  error?: string | null
+  entityName?: string | null
+  asOfDate?: string | null
+  pitPd?: number | null
+  ttcPd?: number | null
+  impliedRating?: string | null
+  confidence?: string | null
+  model?: string | null
+  termStructure?: TermPoint[]
+  financials?: FinGroup[]
+  ratios?: NamedValue[]
+}
+
+export async function scoreUpload(file: File): Promise<UploadScoreResult> {
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await fetch('/api/uploads/score', { method: 'POST', body: fd })
+  if (!res.ok) throw new Error(`Upload failed (HTTP ${res.status})`)
+  return res.json()
+}
+
 /** Deletes a portfolio (and its companies). Returns true if it was removed from the store. */
 export async function deletePortfolio(portfolioId: string): Promise<boolean> {
   try {
