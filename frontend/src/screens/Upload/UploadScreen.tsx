@@ -40,7 +40,7 @@ export function UploadScreen() {
             className="rounded-full bg-brand px-5 py-2 text-sm text-white disabled:opacity-50">
             {busy ? 'Scoring… (this can take ~30s)' : 'Score file'}
           </button>
-          <a href="/api/uploads/template" className="ml-auto text-xs text-brand">⬇ Download corporate template</a>
+          <a href="/api/uploads/template" className="ml-auto text-xs text-brand">⬇ Download corporate template (Excel — mandatory fields marked + example)</a>
         </div>
         {error && <div className="mt-2 text-xs text-bad">{error}</div>}
       </div>

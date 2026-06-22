@@ -12,12 +12,22 @@ public class UploadController : ControllerBase
     private readonly IEdfxClient _client;
     public UploadController(UploadScoreService svc, IEdfxClient client) { _svc = svc; _client = client; }
 
-    /// <summary>Downloads the EDF-X input template (universal or bank) as CSV.</summary>
+    /// <summary>
+    /// Downloads the EDF-X corporate input template. Default is an annotated Excel
+    /// (mandatory fields highlighted + an example row + a Field Guide); ?format=csv
+    /// returns the raw CSV template.
+    /// </summary>
     [HttpGet("template")]
-    public async Task<IActionResult> Template([FromQuery] string kind = "universal")
+    public async Task<IActionResult> Template([FromQuery] string format = "xlsx")
     {
-        var bytes = await _client.DownloadTemplateAsync(kind == "bank" ? "bank" : "universal");
-        return File(bytes, "text/csv", $"edfx_{(kind == "bank" ? "bank" : "universal")}_template.csv");
+        var csv = System.Text.Encoding.UTF8.GetString(await _client.DownloadTemplateAsync("universal"));
+        if (format.Equals("csv", StringComparison.OrdinalIgnoreCase))
+            return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "edfx_corporate_template.csv");
+
+        var cols = csv.Replace("\r", "").Split('\n')[0].Split(',');
+        return File(TemplateBuilder.AnnotatedXlsx(cols),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "edfx_corporate_template.xlsx");
     }
 
     /// <summary>Scores an uploaded financials file (CSV or Excel) and returns PIT + TTC PDs, drivers and ratios.</summary>
