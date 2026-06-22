@@ -11,38 +11,72 @@ import { DirectionalDelta } from '../../components/DirectionalDelta'
 import { RatingBadge } from '../../components/RatingBadge'
 import { RiskGauge } from '../../components/RiskGauge'
 import { AddCompanyDialog } from '../../components/AddCompanyDialog'
-import type { EntityHit } from '../../data/search'
-import { riskColor } from '../../tokens'
+import {
+  getEntitySummary, getPortfolioCompanies, addPortfolioCompany,
+  type EntityHit, type PersistedCompany,
+} from '../../data/search'
+import { riskColor, RISK_LEVELS, type RiskLevel } from '../../tokens'
 
 const TABS = ['All', 'With EWS', 'Need Additional Data']
+
+const toRiskLevel = (s?: string | null): RiskLevel =>
+  (RISK_LEVELS as readonly string[]).includes(s ?? '') ? (s as RiskLevel) : 'Need Additional Data'
+
+// Persisted snapshot -> table row. Stored pd is a probability; the table shows percent.
+const persistedToRow = (c: PersistedCompany): CompanyRow => ({
+  id: c.entityId,
+  name: c.name ?? c.entityId,
+  industry: (c.industry ?? '—').toUpperCase(),
+  ews: toRiskLevel(c.ews),
+  ewsChange: (c.ewsChange as CompanyRow['ewsChange']) ?? 'No Change',
+  pd: (c.pd ?? 0) * 100,
+  pdYoYBps: 0,
+  rating: c.impliedRating ?? '—',
+  peerPercentile: c.peerPercentile ?? null,
+})
 
 export function PortfolioDetail() {
   const { id = '' } = useParams()
   const [pf, setPf] = useState<PD | undefined>()
   const [companies, setCompanies] = useState<CompanyRow[]>([])
   const [tab, setTab] = useState('All')
+  const [notice, setNotice] = useState<string | null>(null)
+
   useEffect(() => {
-    data.getPortfolio(id).then((p) => { setPf(p); setCompanies(p?.companies ?? []) })
+    let active = true
+    Promise.all([data.getPortfolio(id), getPortfolioCompanies(id)]).then(([p, persisted]) => {
+      if (!active) return
+      setPf(p)
+      const base = p?.companies ?? []
+      const persistedRows = persisted.map(persistedToRow)
+      // Persisted companies take precedence over fixture rows with the same id.
+      const persistedIds = new Set(persistedRows.map((r) => r.id))
+      setCompanies([...persistedRows, ...base.filter((b) => !persistedIds.has(b.id))])
+    })
+    return () => { active = false }
   }, [id])
   if (!pf) return null
 
-  // A newly added company has no analytics yet — show it as needing data until extracted.
-  const addCompany = (hit: EntityHit) => {
-    setCompanies((prev) => {
-      if (prev.some((c) => c.id === hit.entityId)) return prev
-      const row: CompanyRow = {
-        id: hit.entityId,
-        name: hit.internationalName ?? hit.entityId,
-        industry: (hit.primaryIndustryNDYDescription ?? '—').toUpperCase(),
-        ews: 'Need Additional Data',
-        ewsChange: 'No Change',
-        pd: 0,
-        pdYoYBps: 0,
-        rating: '—',
-        peerPercentile: null,
-      }
-      return [row, ...prev]
-    })
+  // On add: pull the live snapshot, persist it, then show it in the table.
+  const addCompany = async (hit: EntityHit) => {
+    if (companies.some((c) => c.id === hit.entityId)) return
+    let summary: Awaited<ReturnType<typeof getEntitySummary>> | undefined
+    try { summary = await getEntitySummary(hit.entityId) } catch { /* fall back to identity only */ }
+    const payload: PersistedCompany = {
+      entityId: hit.entityId,
+      name: summary?.name ?? hit.internationalName ?? hit.entityId,
+      industry: summary ? (hit.primaryIndustryNDYDescription ?? null) : hit.primaryIndustryNDYDescription ?? null,
+      pd: summary?.pd ?? null,
+      impliedRating: summary?.impliedRating ?? null,
+      ews: summary?.ews ?? null,
+      ewsChange: summary?.ewsChange ?? null,
+      peerPercentile: null,
+    }
+    const persisted = await addPortfolioCompany(id, payload)
+    setNotice(persisted
+      ? `${payload.name} added and saved to the portfolio.`
+      : `${payload.name} added for this session only — database not configured, so it won't persist.`)
+    setCompanies((prev) => prev.some((c) => c.id === hit.entityId) ? prev : [persistedToRow(payload), ...prev])
   }
 
   const filtered = companies.filter((c) =>
@@ -72,6 +106,10 @@ export function PortfolioDetail() {
         </div>
       </div>
       <div className="mb-3 text-[11px] text-[#9aa0ab]">👤 Owner · 🔒 Just me</div>
+
+      {notice && (
+        <div className="mb-3 rounded-lg bg-[#eef2ff] px-3 py-2 text-xs text-ink">{notice}</div>
+      )}
 
       <div className="mb-3.5 flex flex-wrap gap-3.5">
         <KpiCard title="Early Warning Signal Distribution">

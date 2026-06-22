@@ -34,6 +34,7 @@ builder.Services.AddSingleton<IEdfxClient>(sp => edfx.UseMock
     : sp.GetRequiredService<EdfxClient>());
 builder.Services.AddSingleton(new Db(builder.Configuration["SUPABASE_DB_CONNECTION"] ?? ""));
 builder.Services.AddScoped<ExtractionRepository>();
+builder.Services.AddScoped<PortfolioRepository>();
 builder.Services.AddScoped<IExtractionSaver, SaverAdapter>();
 builder.Services.AddScoped<ExtractionService>();
 builder.Services.AddHttpClient<WhatIfService>();

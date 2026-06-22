@@ -22,7 +22,7 @@ public class DbFixture
             using (var cmd = new NpgsqlCommand(File.ReadAllText(f), c)) cmd.ExecuteNonQuery();
         // Truncate data tables so tests start from a clean state each run
         using (var cmd = new NpgsqlCommand(
-            "truncate table pd_values, financial_ratios, peer_metrics, early_warning, credit_limits, extractions, entities restart identity cascade", c))
+            "truncate table portfolio_companies, portfolios, pd_values, financial_ratios, peer_metrics, early_warning, credit_limits, extractions, entities restart identity cascade", c))
             cmd.ExecuteNonQuery();
     }
 }

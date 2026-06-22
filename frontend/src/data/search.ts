@@ -112,3 +112,39 @@ export async function computeWhatIf(id: string, overrides: Record<string, number
   if (!res.ok) throw new Error(`What-if failed (HTTP ${res.status})`)
   return res.json()
 }
+
+/** A company persisted to a portfolio (snapshot of its loaded data). */
+export interface PersistedCompany {
+  entityId: string
+  name?: string | null
+  industry?: string | null
+  pd?: number | null
+  impliedRating?: string | null
+  ews?: string | null
+  ewsChange?: string | null
+  peerPercentile?: number | null
+}
+
+export async function getPortfolioCompanies(portfolioId: string, signal?: AbortSignal): Promise<PersistedCompany[]> {
+  try {
+    const res = await fetch(`/api/portfolios/${encodeURIComponent(portfolioId)}/companies`, { signal })
+    if (!res.ok) return []
+    return await res.json()
+  } catch {
+    return [] // store unavailable — portfolio still loads from its base data
+  }
+}
+
+/** Persists a company to a portfolio. Returns true if stored, false if the store is unavailable. */
+export async function addPortfolioCompany(portfolioId: string, company: PersistedCompany): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/portfolios/${encodeURIComponent(portfolioId)}/companies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(company),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}

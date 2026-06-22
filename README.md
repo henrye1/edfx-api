@@ -86,6 +86,7 @@ Run the migrations once against your Supabase/Postgres instance before the first
 ```bash
 psql "$SUPABASE_DB_CONNECTION" -f migrations/001_core.sql
 psql "$SUPABASE_DB_CONNECTION" -f migrations/002_projections.sql
+psql "$SUPABASE_DB_CONNECTION" -f migrations/003_portfolios.sql
 ```
 
 ### Getting the Supabase connection string
