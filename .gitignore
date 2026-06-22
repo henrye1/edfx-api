@@ -5,3 +5,6 @@ obj/
 appsettings.*.local.json
 .env
 .superpowers/
+
+# Scratch template pulled from the API during testing (the canonical copy lives in docs/)
+/edfx_template.csv
