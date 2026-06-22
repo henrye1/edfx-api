@@ -1,0 +1,32 @@
+@import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Design tokens (Tailwind v4 @theme generates color/radius/shadow utilities) */
+@theme {
+  --color-navy: #0E1F66;
+  --color-appbg: #F0F1F3;
+  --color-card: #FFFFFF;
+  --color-brand: #2563EB;
+  --color-ink: #1A1A2E;
+  --color-muted: #6B7280;
+  --color-good: #3F8F3F;
+  --color-bad: #D64545;
+
+  --color-risk-low: #5BA847;
+  --color-risk-medium: #F2C94C;
+  --color-risk-high: #F2994A;
+  --color-risk-severe: #D64545;
+  --color-risk-needdata: #C4C9D1;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --radius-card: 14px;
+  --shadow-card: 0 1px 3px rgba(16, 33, 107, 0.08);
+}
+
+html, body, #root { height: 100%; }
+body {
+  background: var(--color-appbg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  margin: 0;
+}
