@@ -32,6 +32,8 @@ public record EntitySummaryDto
     public string? Ews { get; init; }           // risk category: Low/Medium/High/Severe
     public string? EwsChange { get; init; }     // Deteriorated / Improved / No Change
     public double? Trigger { get; init; }        // EWS trigger PD level (point-in-time)
+    public string? Confidence { get; init; }      // model/quality code, e.g. "P-G-R"
+    public string? Model { get; init; }           // confidenceDescription, e.g. "Public firm, CreditEdge model..."
     public List<PdPoint> PdHistory { get; init; } = new();
     public List<TermPoint> TermStructure { get; init; } = new();
 }
@@ -80,6 +82,7 @@ public class SearchController : ControllerBase
         name = search.Entities.FirstOrDefault()?.InternationalName;
 
         double? pd = null, trigger = null; string? rating = null, asOf = null, ews = null, ewsChange = null;
+        string? confidence = null, model = null;
         var history = new List<PdPoint>();
         var term = new List<TermPoint>();
 
@@ -92,6 +95,8 @@ public class SearchController : ControllerBase
             pd = Dbl(pe, "pd");
             rating = Str(pe, "impliedRating");
             asOf = Str(pe, "asOfDate");
+            confidence = Str(pe, "confidence");
+            model = Str(pe, "confidenceDescription");
             if (pe.TryGetProperty("history", out var hist) && hist.ValueKind == JsonValueKind.Array)
                 foreach (var h in hist.EnumerateArray())
                     history.Add(new PdPoint { Date = Str(h, "asOfDate"), Pd = Dbl(h, "pd"), ImpliedRating = Str(h, "impliedRating") });
@@ -122,7 +127,8 @@ public class SearchController : ControllerBase
         {
             EntityId = id, Name = name, AsOfDate = asOf,
             Pd = pd, ImpliedRating = rating, Ews = ews, EwsChange = ewsChange,
-            Trigger = trigger, PdHistory = history, TermStructure = term,
+            Trigger = trigger, Confidence = confidence, Model = model,
+            PdHistory = history, TermStructure = term,
         };
     }
 

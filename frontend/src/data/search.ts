@@ -49,6 +49,8 @@ export interface EntitySummaryLive {
   ews?: string | null           // Low/Medium/High/Severe
   ewsChange?: string | null     // Deteriorated/Improved/No Change
   trigger?: number | null       // EWS trigger PD level
+  confidence?: string | null    // model/quality code, e.g. "P-G-R"
+  model?: string | null         // e.g. "Public firm, CreditEdge model. Based on recent and good quality inputs."
   pdHistory?: PdPoint[]
   termStructure?: TermPoint[]
 }
