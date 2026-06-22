@@ -39,7 +39,10 @@ export function CreditRiskPanel({ summary }: { summary?: EntitySummaryLive }) {
       )}
 
       <div className="mt-3 rounded-card bg-card p-4 shadow-card text-[12px] text-muted">
-        Drivers, Qualitative Overlay and Parent/Group Support require additional EDF-X endpoints and are not wired in this build.
+        <b className="text-ink">Drivers</b> (PD input detail) are supported by the API via
+        <code className="mx-1">modelParameters.inputDetail</code> but are not returned for this account’s
+        entitlement. <b className="text-ink">Qualitative Overlay</b> and <b className="text-ink">Parent/Group
+        Support</b> have no corresponding EDF-X API endpoint.
       </div>
     </div>
   )

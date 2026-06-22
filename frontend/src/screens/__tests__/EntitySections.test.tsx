@@ -62,6 +62,7 @@ describe('EntityDetail sections', () => {
     renderEntity()
     await screen.findByText('Sasol Ltd')
     await userEvent.click(screen.getByText(/Instruments/))
-    expect(await screen.findByText(/isn't wired to live EDF-X/)).toBeInTheDocument()
+    expect(await screen.findByText(/no instrument-level analytics endpoint/)).toBeInTheDocument()
+    expect(screen.getByText('Not available via API')).toBeInTheDocument()
   })
 })
