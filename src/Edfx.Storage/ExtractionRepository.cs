@@ -2,6 +2,10 @@ using Npgsql;
 namespace Edfx.Storage;
 public record ExtractionRow(Guid Id, int Version);
 public record HistoryItem(int Version, DateTimeOffset RequestedAt, int HttpStatus, string Status);
+public record LatestExtraction(int Version, int HttpStatus, string Status, string Raw);
+public record RecentExtraction(
+    string EntityId, string? Name, string Section, int Version,
+    DateTimeOffset RequestedAt, int HttpStatus, string Status);
 
 public class ExtractionRepository
 {
@@ -68,6 +72,50 @@ public class ExtractionRepository
         cmd.Parameters.AddWithValue("e", entityId);
         cmd.Parameters.AddWithValue("s", section);
         return cmd.ExecuteScalar() as string;
+    }
+
+    /// <summary>Latest saved extraction (with version + status) for one entity/section, or null if none.</summary>
+    public LatestExtraction? Latest(string entityId, string section)
+    {
+        using var c = _db.Open();
+        using var cmd = new NpgsqlCommand(
+            "select version, http_status, status, raw_text from extractions where entity_id=@e and section=@s order by version desc limit 1", c);
+        cmd.Parameters.AddWithValue("e", entityId);
+        cmd.Parameters.AddWithValue("s", section);
+        using var rd = cmd.ExecuteReader();
+        if (!rd.Read()) return null;
+        return new LatestExtraction(
+            rd.GetInt32(0),
+            rd.IsDBNull(1) ? 0 : rd.GetInt32(1),
+            rd.GetString(2),
+            rd.IsDBNull(3) ? "" : rd.GetString(3));
+    }
+
+    /// <summary>Most-recent extractions across all entities and sections, newest first.</summary>
+    public List<RecentExtraction> Recent(int limit = 500)
+    {
+        using var c = _db.Open();
+        using var cmd = new NpgsqlCommand(
+            """
+            select x.entity_id, e.name, x.section, x.version, x.requested_at, x.http_status, x.status
+            from extractions x
+            left join entities e on e.entity_id = x.entity_id
+            order by x.requested_at desc
+            limit @lim;
+            """, c);
+        cmd.Parameters.AddWithValue("lim", limit);
+        var list = new List<RecentExtraction>();
+        using var rd = cmd.ExecuteReader();
+        while (rd.Read())
+            list.Add(new RecentExtraction(
+                rd.IsDBNull(0) ? "" : rd.GetString(0),
+                rd.IsDBNull(1) ? null : rd.GetString(1),
+                rd.GetString(2),
+                rd.GetInt32(3),
+                rd.GetFieldValue<DateTimeOffset>(4),
+                rd.IsDBNull(5) ? 0 : rd.GetInt32(5),
+                rd.GetString(6)));
+        return list;
     }
 
     public List<HistoryItem> History(string entityId, string section)

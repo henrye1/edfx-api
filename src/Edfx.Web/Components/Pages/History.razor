@@ -4,27 +4,79 @@
 @inject ExtractionRepository Repo
 <PageTitle>History</PageTitle>
 <h2>Extraction History</h2>
-<input @bind="entityId" placeholder="entityId (BVDID)" />
-<input @bind="section" placeholder="section e.g. pds" />
-<button class="btn btn-primary" @onclick="Load">Load</button>
-@if (items is not null)
+
+<input @bind="search" @bind:event="oninput" class="form-control mb-2" style="max-width:460px"
+       placeholder="Search by entity id, company name or section…" />
+
+@if (recent is null)
 {
-  <table class="table"><thead><tr><th>Version</th><th>When</th><th>HTTP</th><th>Status</th><th></th></tr></thead>
-  <tbody>@foreach (var h in items)
-  { <tr><td>@h.Version</td><td>@h.RequestedAt</td><td>@h.HttpStatus</td><td>@h.Status</td>
-        <td><a href="@($"/export/{entityId}/{section}.xlsx")">Excel</a></td></tr> }
-  </tbody></table>
-  <div>
-    <input @bind="vA" placeholder="ver A" style="width:80px" />
-    <input @bind="vB" placeholder="ver B" style="width:80px" />
-    <button class="btn btn-outline-secondary" @onclick="Diff">Diff</button>
-  </div>
-  <pre>@diff</pre>
+  <p>Loading…</p>
 }
+else if (recent.Count == 0)
+{
+  <p class="text-muted">No extractions saved yet. Extract a section from an entity page to populate this list.</p>
+}
+else
+{
+  var rows = Filtered();
+  <p class="text-muted">Showing @rows.Count of @recent.Count extractions (newest first)</p>
+  <table class="table table-sm">
+    <thead><tr><th>Entity</th><th>Name</th><th>Section</th><th>Version</th><th>When</th><th>HTTP</th><th>Status</th><th>Export</th></tr></thead>
+    <tbody>
+    @foreach (var r in rows)
+    {
+      <tr>
+        <td><a href="@($"/entity/{r.EntityId}")">@r.EntityId</a></td>
+        <td>@r.Name</td>
+        <td>@r.Section</td>
+        <td>@r.Version</td>
+        <td>@r.RequestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+        <td>@r.HttpStatus</td>
+        <td>@r.Status</td>
+        <td>
+          <a href="@($"/export/{r.EntityId}/{r.Section}.csv")">CSV</a>
+          · <a href="@($"/export/{r.EntityId}/{r.Section}.xlsx")">Excel</a>
+        </td>
+      </tr>
+    }
+    </tbody>
+  </table>
+}
+
+<hr />
+<h5>Compare two versions</h5>
+<div class="d-flex gap-2 flex-wrap mb-2">
+  <input @bind="entityId" placeholder="entityId (BVDID)" class="form-control" style="max-width:200px" />
+  <input @bind="section" placeholder="section e.g. pds" class="form-control" style="max-width:160px" />
+  <input @bind="vA" placeholder="ver A" class="form-control" style="width:90px" />
+  <input @bind="vB" placeholder="ver B" class="form-control" style="width:90px" />
+  <button class="btn btn-outline-secondary" @onclick="Diff">Diff</button>
+</div>
+<pre>@diff</pre>
+
 @code {
+  string search = "";
+  List<RecentExtraction>? recent;
+
   string entityId = "", section = ""; int vA, vB; string diff = "";
-  List<Edfx.Storage.HistoryItem>? items;
-  void Load() => items = Repo.History(entityId, section);
+
+  protected override void OnInitialized()
+  {
+    try { recent = Repo.Recent(); }
+    catch { recent = new(); }
+  }
+
+  List<RecentExtraction> Filtered()
+  {
+    if (recent is null) return new();
+    var q = search?.Trim();
+    if (string.IsNullOrEmpty(q)) return recent;
+    return recent.Where(r =>
+      r.EntityId.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+      (r.Name?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+      r.Section.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+  }
+
   void Diff()
   {
     var a = Repo.RawAtVersion(entityId, section, vA) ?? "";

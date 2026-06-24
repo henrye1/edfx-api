@@ -1,8 +1,10 @@
 @using Edfx.Web.Services
+@using Edfx.Storage
 @inject ExtractionService Extractor
+@inject ExtractionRepository Repo
 <div class="card mb-2"><div class="card-body">
   <h5>@Title <small class="text-muted">@status</small></h5>
-  <button class="btn btn-primary btn-sm" @onclick="Extract" disabled="@busy">Extract</button>
+  <button class="btn btn-primary btn-sm" @onclick="Extract" disabled="@busy">@(raw is null ? "Extract" : "Re-extract")</button>
   @if (raw is not null)
   {
     <span class="ms-2">v@version · HTTP @http</span>
@@ -16,6 +18,23 @@
   [Parameter] public string Section { get; set; } = "";
   [Parameter] public string Title { get; set; } = "";
   bool busy; string? raw; int version; int http; string status = "";
+
+  // Show the latest previously-saved extraction on open, so the page isn't blank on reload.
+  protected override void OnInitialized()
+  {
+    try
+    {
+      var latest = Repo.Latest(EntityId, Section);
+      if (latest is not null)
+      {
+        raw = latest.Raw; version = latest.Version; http = latest.HttpStatus;
+        status = $"saved v{latest.Version}";
+      }
+      else status = "not yet extracted";
+    }
+    catch { /* store unavailable — panel still allows a fresh extract */ }
+  }
+
   async Task Extract()
   {
     busy = true; status = "running…";
