@@ -6,6 +6,8 @@ public record LatestExtraction(int Version, int HttpStatus, string Status, strin
 public record RecentExtraction(
     string EntityId, string? Name, string Section, int Version,
     DateTimeOffset RequestedAt, int HttpStatus, string Status);
+public record EntityResults(string EntityId, string? Name, int SectionCount, DateTimeOffset LastExtractedAt);
+public record SectionResult(string Section, int Version, int HttpStatus, string Status, string Raw);
 
 public class ExtractionRepository
 {
@@ -115,6 +117,55 @@ public class ExtractionRepository
                 rd.GetFieldValue<DateTimeOffset>(4),
                 rd.IsDBNull(5) ? 0 : rd.GetInt32(5),
                 rd.GetString(6)));
+        return list;
+    }
+
+    /// <summary>All entities that have at least one extraction, newest activity first.</summary>
+    public List<EntityResults> EntitiesWithExtractions()
+    {
+        using var c = _db.Open();
+        using var cmd = new NpgsqlCommand(
+            """
+            select x.entity_id, max(e.name) as name,
+                   count(distinct x.section) as section_count,
+                   max(x.requested_at) as last_at
+            from extractions x
+            left join entities e on e.entity_id = x.entity_id
+            group by x.entity_id
+            order by last_at desc;
+            """, c);
+        var list = new List<EntityResults>();
+        using var rd = cmd.ExecuteReader();
+        while (rd.Read())
+            list.Add(new EntityResults(
+                rd.GetString(0),
+                rd.IsDBNull(1) ? null : rd.GetString(1),
+                (int)rd.GetInt64(2),
+                rd.GetFieldValue<DateTimeOffset>(3)));
+        return list;
+    }
+
+    /// <summary>The latest saved version of every section for one entity.</summary>
+    public List<SectionResult> LatestPerSection(string entityId)
+    {
+        using var c = _db.Open();
+        using var cmd = new NpgsqlCommand(
+            """
+            select distinct on (section) section, version, http_status, status, raw_text
+            from extractions
+            where entity_id = @e
+            order by section, version desc;
+            """, c);
+        cmd.Parameters.AddWithValue("e", entityId);
+        var list = new List<SectionResult>();
+        using var rd = cmd.ExecuteReader();
+        while (rd.Read())
+            list.Add(new SectionResult(
+                rd.GetString(0),
+                rd.GetInt32(1),
+                rd.IsDBNull(2) ? 0 : rd.GetInt32(2),
+                rd.GetString(3),
+                rd.IsDBNull(4) ? "" : rd.GetString(4)));
         return list;
     }
 

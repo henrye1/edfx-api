@@ -55,4 +55,34 @@ public class ExtractionRepositoryTests : IClassFixture<DbFixture>
         Assert.Equal(1, row.Version);
         Assert.Equal(body, repo.LatestRaw("ERRENT1", "pds"));
     }
+
+    [SkippableFact]
+    public void EntitiesWithExtractions_groups_by_entity_with_counts()
+    {
+        var repo = new ExtractionRepository(new Db(_f.Conn!));
+        repo.UpsertEntity("ENT_A", "Alpha Ltd", "US");
+        repo.SaveExtraction("ENT_A", "pds", "{\"pd\":0.01}", 200, "ok", "{}");
+        repo.SaveExtraction("ENT_A", "ratios", "{\"a\":1}", 200, "ok", "{}");
+        repo.SaveExtraction("ENT_A", "ratios", "{\"a\":2}", 200, "ok", "{}"); // 2nd version, same section
+
+        var all = repo.EntitiesWithExtractions();
+        var a = all.Single(e => e.EntityId == "ENT_A");
+        Assert.Equal("Alpha Ltd", a.Name);
+        Assert.Equal(2, a.SectionCount); // distinct sections, not versions
+    }
+
+    [SkippableFact]
+    public void LatestPerSection_returns_latest_version_of_each_section()
+    {
+        var repo = new ExtractionRepository(new Db(_f.Conn!));
+        repo.SaveExtraction("ENT_B", "pds", "{\"pd\":0.01}", 200, "ok", "{}");
+        repo.SaveExtraction("ENT_B", "pds", "{\"pd\":0.02}", 200, "ok", "{}");
+        repo.SaveExtraction("ENT_B", "ratios", "{\"a\":1}", 200, "ok", "{}");
+
+        var latest = repo.LatestPerSection("ENT_B");
+        Assert.Equal(2, latest.Count);
+        var pds = latest.Single(s => s.Section == "pds");
+        Assert.Equal(2, pds.Version);
+        Assert.Equal("{\"pd\":0.02}", pds.Raw);
+    }
 }
